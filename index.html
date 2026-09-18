@@ -166,7 +166,7 @@ footer.foot{padding:24px;text-align:center;color:var(--muted);font-size:11.5px;}
     <div class="tabpane" id="tab-sales">
       <div class="section">
         <h2><span class="letter">a</span> Sales achieved vs. committed <span class="auto-tag">AUTO — sales tracker</span></h2>
-        <p class="hint">FY-to-date and this-month, pulled from the weekly commit sheet (closedWon / commitValue fields, synced from HubSpot).</p>
+        <p class="hint">FY-to-date and this-month, pulled from the weekly commit sheet. Achieved = max closed-won per rep across that month's weeks (avoids double-counting a snapshot repeated in several weeks); committed = sum of everyone's Commit value for the month. See Data Health for a note on when this can lag the tracker's live HubSpot refresh.</p>
         <div id="salesCards" class="grid cols-4"></div>
       </div>
       <div class="section">
@@ -486,13 +486,16 @@ async function launchApp() {
 /* ════════════════════════════════════════════════════════════════════
    HELPERS — dates, formatting, parsing
 ════════════════════════════════════════════════════════════════════ */
-function monthKey(d) { return d.getFullYear() + '-' + (d.getMonth() + 1); }
+// Sales tracker month-bucket keys are `${year}-${month}` with month
+// ZERO-indexed (its own getMonthKey() = `${y}-${m}`, called with
+// JS Date.getMonth() values — Jan=0 ... Dec=11). No +1 here, on purpose.
+function monthKey(d) { return d.getFullYear() + '-' + d.getMonth(); }
 function fmtMonth(d) { return d.toLocaleString('en-GB', { month: 'long', year: 'numeric' }); }
 function fmtAED(n) { n = Number(n) || 0; return 'AED ' + Math.round(n).toLocaleString('en-US'); }
 function pct(n) { return (Number(n) || 0).toFixed(0) + '%'; }
 function monthsOfFY(uptoDate) {
   const out = []; const y = uptoDate.getFullYear();
-  for (let m = FY_START_MONTH; m <= uptoDate.getMonth(); m++) out.push(y + '-' + (m + 1));
+  for (let m = FY_START_MONTH; m <= uptoDate.getMonth(); m++) out.push(y + '-' + m);
   return out;
 }
 function safeArr(x) { return Array.isArray(x) ? x : []; }
@@ -558,12 +561,32 @@ function computeAll() {
   }
   function sumField(rows, field) { return rows.reduce((a, r) => a + (Number(r[field]) || 0), 0); }
 
+  // closedWon is written as a running month-to-date SNAPSHOT into each week's
+  // row, not an incremental weekly amount — the tracker's own exec dashboard
+  // takes the MAX per rep across that month's weeks (never sums them) so a
+  // stale copy sitting in another week slot can't double/triple-count.
+  // Mirrors execAggForMonth() in the sales tracker.
+  function closedWonForMonth(mk) {
+    const bucket = sales.data[mk];
+    if (!bucket || !Array.isArray(bucket.weeks)) return 0;
+    const maxByRep = {};
+    bucket.weeks.forEach(wk => {
+      (Array.isArray(wk) ? wk : []).forEach(r => {
+        if (!r || !r.rep) return;
+        const v = Number(r.closedWon) || 0;
+        maxByRep[r.rep] = Math.max(maxByRep[r.rep] || 0, v);
+      });
+    });
+    return Object.values(maxByRep).reduce((a, v) => a + v, 0);
+  }
+  function closedWonForMonths(mks) { return mks.reduce((a, mk) => a + closedWonForMonth(mk), 0); }
+
   // ---- (a) sales achieved vs committed ----
   const thisMonthRows = rowsForMonth(thisMonthKey);
   const fyRows = fyMonths.reduce((a, mk) => a.concat(rowsForMonth(mk)), []);
   const salesA = {
-    fyAchieved: sumField(fyRows, 'closedWon'),
-    monthAchieved: sumField(thisMonthRows, 'closedWon'),
+    fyAchieved: closedWonForMonths(fyMonths),
+    monthAchieved: closedWonForMonth(thisMonthKey),
     monthCommitted: sumField(thisMonthRows, 'commitValue'),
     monthBestCase: sumField(thisMonthRows, 'bestCaseValue')
   };
@@ -746,7 +769,8 @@ function renderHealth() {
     const ok = h.ok;
     return `<div class="card"><h3>${key}</h3><div class="big" style="font-size:16px;"><span class="badge ${ok?'ok':'bad'}">${ok?'Loaded':'Failed'}</span></div><div class="sub">${path}</div><div class="sub">${ok ? note : (h.note||'')}</div></div>`;
   }).join('');
-  document.getElementById('healthDetail').innerHTML = `<p class="hint">Raw finance fields read (performance.v): rent override <code>pf_cenb_0</code> = ${computed.fin.v.pf_cenb_0 ?? '(using default '+CENTRAL_DEFAULTS.rentWarehouse+')'} · marketing override <code>pf_cenb_8</code> = ${computed.fin.v.pf_cenb_8 ?? '(using default '+CENTRAL_DEFAULTS.marketing+')'}.</p>`;
+  document.getElementById('healthDetail').innerHTML = `<p class="hint">Raw finance fields read (performance.v): rent override <code>pf_cenb_0</code> = ${computed.fin.v.pf_cenb_0 ?? '(using default '+CENTRAL_DEFAULTS.rentWarehouse+')'} · marketing override <code>pf_cenb_8</code> = ${computed.fin.v.pf_cenb_8 ?? '(using default '+CENTRAL_DEFAULTS.marketing+')'}.</p>
+  <p class="hint">Closed Won here is computed from the sales tracker's OneDrive file (max per rep, per month — matches its exec dashboard's fallback logic). The tracker's dashboard can also override this with a HubSpot-refreshed cache that lives only in your browser's local storage, never in the OneDrive file, so if you've recently clicked "Refresh from HubSpot" there this figure may still be a few deals behind. Ask if you want this pulled live from HubSpot instead for an exact match.</p>`;
 }
 
 function renderReport() {
