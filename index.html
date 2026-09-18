@@ -73,6 +73,1006 @@ main{padding:22px;max-width:1180px;width:100%;margin:0 auto;}
 .section .letter{background:var(--blue);color:#fff;width:22px;height:22px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;}
 .section .hint{font-size:12px;color:var(--muted);margin:0 0 12px;}
 
+/* ---------- EXECUTIVE REPORT ---------- */
+.report-hero{background:linear-gradient(135deg,var(--navy),#0d1f4d 45%,#182f66 150%);border:1px solid var(--line);border-radius:16px;padding:26px 28px;margin-bottom:24px;position:relative;overflow:hidden;}
+.report-hero::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 88% -20%,rgba(82,148,255,.35),transparent 55%);pointer-events:none;}
+.report-hero .eyebrow{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--lblue);font-weight:700;position:relative;}
+.report-hero h1{margin:5px 0 3px;font-size:23px;position:relative;}
+.report-hero .meta-line{color:var(--muted);font-size:12.5px;position:relative;}
+.hero-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:20px;position:relative;}
+@media(max-width:1000px){.hero-kpis{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:600px){.hero-kpis{grid-template-columns:repeat(2,1fr);}}
+.hero-kpi{background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.12);border-radius:11px;padding:12px 14px;}
+.hero-kpi .lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--lblue);font-weight:700;}
+.hero-kpi .val{font-size:19px;font-weight:800;margin-top:3px;color:#fff;}
+.hero-kpi .foot{font-size:11px;color:var(--muted);margin-top:2px;}
+
+.rsec{margin:0 0 32px;}
+.rsec-head{display:flex;align-items:baseline;gap:10px;margin-bottom:14px;padding-bottom:9px;border-bottom:1px solid var(--line);}
+.rsec-head .letter{background:linear-gradient(135deg,var(--hyper),var(--blue));color:#fff;width:25px;height:25px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:800;flex:none;}
+.rsec-head h2{font-size:15.5px;margin:0;}
+.rsec-head .rsub{margin-left:auto;font-size:11.5px;color:var(--muted);text-align:right;}
+.rtable-wrap{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:12px;}
+.rtable-wrap table{margin:0;}
+.rtable-wrap th, .rtable-wrap td{padding:9px 14px;}
+.rtable-wrap .empty{padding:16px;color:var(--muted);font-size:12.5px;text-align:center;}
+
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);}
+th{color:var(--muted);font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.03em;}
+tr:hover td{background:rgba(255,255,255,.02);}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;}
+.badge.ok{background:rgba(46,204,113,.15);color:var(--ok);}
+.badge.warn{background:rgba(242,199,68,.15);color:var(--warn);}
+.badge.bad{background:rgba(240,78,35,.15);color:var(--bad);}
+.badge.muted{background:rgba(143,163,214,.15);color:var(--muted);}
+.progress{height:8px;border-radius:6px;background:#0A1330;overflow:hidden;border:1px solid var(--line);}
+.progress > div{height:100%;background:linear-gradient(90deg,var(--hyper),var(--blue));}
+.field-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px;}
+.field{display:flex;flex-direction:column;gap:4px;min-width:150px;}
+.field label{font-size:11.5px;color:var(--muted);font-weight:600;}
+.note{font-size:12px;color:var(--muted);background:rgba(82,148,255,.08);border:1px solid rgba(82,148,255,.25);border-radius:8px;padding:10px 12px;margin:10px 0;}
+.warnnote{font-size:12px;color:var(--warn);background:rgba(242,199,68,.08);border:1px solid rgba(242,199,68,.3);border-radius:8px;padding:10px 12px;margin:10px 0;}
+.manual-tag{font-size:10px;background:var(--coral);color:#fff;padding:1px 7px;border-radius:10px;font-weight:700;margin-left:6px;vertical-align:middle;}
+.auto-tag{font-size:10px;background:var(--blue);color:#fff;padding:1px 7px;border-radius:10px;font-weight:700;margin-left:6px;vertical-align:middle;}
+.emp-card{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:8px;}
+.emp-card .row1{display:flex;justify-content:space-between;align-items:center;gap:10px;}
+.emp-card .name{font-weight:700;}
+.emp-card .meta{color:var(--muted);font-size:12px;}
+pre.raw{max-height:260px;overflow:auto;background:#050A1C;border:1px solid var(--line);border-radius:8px;padding:10px;font-size:11px;color:#9fb4e8;}
+footer.foot{padding:24px;text-align:center;color:var(--muted);font-size:11.5px;}
+
+/* Print / report export — only the Weekly Report tab's content prints,
+   regardless of which tab is active on screen. */
+@media print{
+  header.top, nav.tabs, .no-print{display:none !important;}
+  main{max-width:100%;padding:0;}
+  body{background:#fff;color:#111;}
+  .card, .rcard, .rtable-wrap, .hero-kpi{background:#fff;border:1px solid #ccc;}
+  .report-hero{background:#fff;border:1px solid #ccc;}
+  .report-hero *, .rcard *{color:#111 !important;}
+  .tabpane{display:none !important;}
+  #tab-report{display:block !important;}
+}
+</style>
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<div id="loginScreen">
+  <div class="logo-mark">CV</div>
+  <h1>OxeFit Weekly Report</h1>
+  <p>Pulls live from your Sales, HR and Finance tools on OneDrive and rolls them into the weekly report for OxeFit. Sign in with your CoreV Microsoft account to continue.</p>
+  <div id="setupNotice"></div>
+  <button class="btn primary" id="btnSignIn" onclick="signInOneDrive()">Sign in with Microsoft</button>
+  <div id="loginError"></div>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="app">
+  <header class="top">
+    <div class="brand">
+      <div class="logo-mark" style="width:34px;height:34px;font-size:14px;border-radius:9px;">CV</div>
+      <div>OxeFit Weekly Report<small id="userLine">—</small></div>
+    </div>
+    <div class="spacer"></div>
+    <span id="periodLabel">—</span>
+    <span id="syncBadge">offline</span>
+    <button class="btn small" onclick="refreshAll()">Refresh data</button>
+    <button class="btn small" onclick="signOut()">Sign out</button>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="report">Weekly Report</button>
+    <button class="tab-btn" data-tab="sales">Sales &amp; Orders</button>
+    <button class="tab-btn" data-tab="finance">Finance</button>
+    <button class="tab-btn" data-tab="showroom">Showroom / Warehouse</button>
+    <button class="tab-btn" data-tab="targets">Targets</button>
+    <button class="tab-btn" data-tab="leads">Marketing Leads</button>
+    <button class="tab-btn" data-tab="team">Employees</button>
+    <button class="tab-btn" data-tab="health">Data Health</button>
+  </nav>
+
+  <main>
+
+    <!-- ============ REPORT (a-g combined, printable) ============ -->
+    <div class="tabpane active" id="tab-report">
+      <div class="no-print" style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
+        <button class="btn primary" onclick="window.print()">🖨 Print / Save as PDF</button>
+        <button class="btn" onclick="saveSnapshot()">💾 Save this week's snapshot</button>
+        <button class="btn" onclick="downloadJson()">⬇ Export report JSON</button>
+        <span class="sub" id="lastSnapshotLine" style="color:var(--muted);font-size:12px;"></span>
+      </div>
+      <div class="warnnote no-print">This is a first draft wired directly to your Sales / HR / Finance tools. Figures marked <span class="auto-tag">AUTO</span> are pulled live — please sanity-check them against the source tools before this goes to OxeFit. Figures marked <span class="manual-tag">MANUAL</span> are entered by you each week (see the relevant tab). See <b>Data Health</b> for exactly what loaded.</div>
+
+      <div id="reportBody"><!-- rendered by renderReport() --></div>
+    </div>
+
+    <!-- ============ SALES & ORDERS ============ -->
+    <div class="tabpane" id="tab-sales">
+      <div class="section">
+        <h2><span class="letter">a</span> Sales achieved vs. committed <span class="auto-tag">AUTO — sales tracker</span></h2>
+        <p class="hint">FY-to-date and this-month, pulled from the weekly commit sheet. Achieved = max closed-won per rep across that month's weeks (avoids double-counting a snapshot repeated in several weeks); committed = sum of everyone's Commit value for the month. See Data Health for a note on when this can lag the tracker's live HubSpot refresh.</p>
+        <div id="salesCards" class="grid cols-4"></div>
+      </div>
+      <div class="section">
+        <h2><span class="letter">b</span> Commitments for Delivering XS1 and XP1</h2>
+        <p class="hint"><b>Committed</b> = unit forecasts reps enter on the weekly commit sheet for this month (forecastXS1 / forecastXP1), pulled from the sales tracker. <b>Closed</b> = units on deals that closed this month, read from Finance's Payouts &amp; OxeFit device mapping (each order paid to OxeFit is tagged with the devices it covers) — so this is the confirmed-order count, not a forecast.</p>
+        <div id="ordersCards" class="grid cols-4"></div>
+        <div class="rtable-wrap"><table id="ordersTable"></table></div>
+      </div>
+    </div>
+
+    <!-- ============ FINANCE ============ -->
+    <div class="tabpane" id="tab-finance">
+      <div class="section">
+        <h2><span class="letter">c</span> Finance — cost vs. income (OxeFit)</h2>
+        <p class="hint">Salaries pull from HR; showroom/warehouse rent and marketing budget pull from Finance's central cost pool. "Income to OxeFit" is entered manually until it's wired to the Finance payables ledger.</p>
+        <div id="financeCards" class="grid cols-4"></div>
+        <div class="card" style="margin-top:14px;">
+          <h3>Manual inputs <span class="manual-tag">MANUAL</span></h3>
+          <div class="field-row">
+            <div class="field"><label>Income to OxeFit this month (AED)</label><input type="number" id="mIncomeOxefit" step="1"></div>
+            <div class="field"><label>Notes on this week's finance figures</label><input type="text" id="mFinanceNote" style="min-width:280px;"></div>
+            <button class="btn primary small" onclick="saveManualInputs()">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ SHOWROOM / WAREHOUSE ============ -->
+    <div class="tabpane" id="tab-showroom">
+      <div class="section">
+        <h2><span class="letter">d</span> Showroom &amp; warehouse relocation progress <span class="manual-tag">MANUAL — you update this weekly</span></h2>
+        <p class="hint">Tracks progress on moving to replacement premises (ties into the leasing brief / agent outreach work) and the cost reduction that comes with it.</p>
+        <div id="relocationForms"></div>
+        <button class="btn primary small" onclick="saveManualInputs()">Save relocation update</button>
+      </div>
+    </div>
+
+    <!-- ============ TARGETS ============ -->
+    <div class="tabpane" id="tab-targets">
+      <div class="section">
+        <h2><span class="letter">e</span> FY target progress <span class="auto-tag">AUTO — sales tracker goals</span></h2>
+        <p class="hint">Sum of monthly rep goals (perfMeta.goals) for Jan–Dec of the fiscal year, vs. cumulative closedWon to date.</p>
+        <div id="targetCards" class="grid cols-3"></div>
+        <div class="card" style="margin-top:14px;">
+          <h3>Cost reduction target <span class="manual-tag">MANUAL</span></h3>
+          <div class="field-row">
+            <div class="field"><label>Target cost reduction (AED / month)</label><input type="number" id="mCostReductionTarget" step="1"></div>
+            <div class="field"><label>Achieved so far (AED / month)</label><input type="number" id="mCostReductionAchieved" step="1"></div>
+            <button class="btn primary small" onclick="saveManualInputs()">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ LEADS ============ -->
+    <div class="tabpane" id="tab-leads">
+      <div class="section">
+        <h2><span class="letter">f</span> Marketing leads generated this month <span class="auto-tag">AUTO — sales tracker</span></h2>
+        <p class="hint">From the Marketing Leads / follow-up pipeline, filtered to leads created this calendar month.</p>
+        <div id="leadsCards" class="grid cols-4"></div>
+        <table id="leadsTable" style="margin-top:14px;"></table>
+      </div>
+    </div>
+
+    <!-- ============ EMPLOYEES ============ -->
+    <div class="tabpane" id="tab-team">
+      <div class="section">
+        <h2><span class="letter">g</span> Employee status, achievements &amp; closures <span class="auto-tag">AUTO + </span><span class="manual-tag">MANUAL notes</span></h2>
+        <p class="hint">Status/role from HR, deals closed this month derived from the sales tracker. Add a one-line achievement note per person — it's saved for next week too.</p>
+        <div id="teamList"></div>
+        <button class="btn primary small" onclick="saveManualInputs()">Save notes</button>
+      </div>
+    </div>
+
+    <!-- ============ DATA HEALTH ============ -->
+    <div class="tabpane" id="tab-health">
+      <div class="section">
+        <h2>Data Health</h2>
+        <p class="hint">What actually loaded from each source file this session — check this first if a number looks wrong.</p>
+        <div id="healthCards" class="grid cols-4"></div>
+        <div id="healthDetail"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="foot">OxeFit Weekly Report · built for Core Velocity (CoreV) · reads Sales / HR / Finance tools on the shared OneDrive · v1.0</footer>
+</div>
+
+<!-- MSAL.js — same CDN + fallback + version pinned by the other CoreV tools -->
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
+<script>
+  if (typeof msal === 'undefined') {
+    document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/msal-browser/2.38.3/msal-browser.min.js"><\/script>');
+  }
+</script>
+<script>
+/* ════════════════════════════════════════════════════════════════════
+   CONFIG
+   Reuses the exact same Azure app registration / tenant / shared-drive
+   pattern as the other CoreV tools (sales tracker, CoreVHR, Finance) so
+   sign-in works the same way and the same team can access it.
+════════════════════════════════════════════════════════════════════ */
+const ONEDRIVE_CONFIG = {
+  clientId    : 'cd1b7f5f-5ff9-4066-ab4f-06f270a94fcb',
+  authority   : 'https://login.microsoftonline.com/core-velocity.com',
+  redirectUri : window.location.origin + window.location.pathname,
+  sharedDriveUser: 'demo@core-velocity.com',
+  scopes      : ['Files.ReadWrite.All', 'User.Read']
+};
+
+// Read-only sources (the other tools own these files — we never write to them)
+const SOURCES = {
+  sales  : '/OXEFIT/sales-tracker.json',
+  hr     : '/OXEFIT/corev-hr.json',
+  finance: '/OXEFIT/corev-finance-suite.json'
+};
+// This tool's own file — manual inputs + weekly snapshot history
+const OWN_FILE = '/OXEFIT/oxefit-weekly-report.json';
+
+// Default central-cost baseline mirrored from the Finance tool's own hardcoded
+// defaults (CENTRAL array). Overridden automatically if Finance has saved
+// edited values for these fields (performance.v.pf_cenb_0 / pf_cenb_8).
+const CENTRAL_DEFAULTS = { rentWarehouse: 66858, marketing: 32000 };
+
+// Reps excluded from headcount/commission views in the sales tracker (admins)
+const ADMIN_REPS = ['Gladys','Ahmed','Sami','Kamal'];
+const FALLBACK_TEAMS = { 'Dubai': ['Fatima','Marios','Hasan','Katy','Milena'], 'Abu Dhabi': ['Wafiq','Jawdat','Hussean'] };
+
+const FY_START_MONTH = 0; // January (0-indexed) — Ahmed confirmed calendar-year FY
+
+/* ════════════════════════════════════════════════════════════════════
+   STATE
+════════════════════════════════════════════════════════════════════ */
+let msalInstance = null, msalAccount = null;
+let _sharedFileRefs = {}; // path -> {driveId,itemId}
+let RAW = { sales: null, hr: null, finance: null, own: null };
+let HEALTH = {}; // path -> {status, note, counts}
+let computed = {}; // last computeAll() result, used by renderReport/export
+
+/* ════════════════════════════════════════════════════════════════════
+   AUTH  (adapted from sales-tracker.html — same tenant/app/shared drive)
+════════════════════════════════════════════════════════════════════ */
+async function initOneDrive() {
+  if (!ONEDRIVE_CONFIG.clientId) { showSetupNotice(); return; }
+  try {
+    msalInstance = new msal.PublicClientApplication({
+      auth: { clientId: ONEDRIVE_CONFIG.clientId, authority: ONEDRIVE_CONFIG.authority, redirectUri: ONEDRIVE_CONFIG.redirectUri },
+      cache: { cacheLocation: 'localStorage' }
+    });
+    await msalInstance.initialize();
+    let redirectRes = null;
+    try { redirectRes = await msalInstance.handleRedirectPromise(); } catch(_) {}
+    if (redirectRes && redirectRes.account) { msalAccount = redirectRes.account; await launchApp(); return; }
+    const accts = msalInstance.getAllAccounts();
+    if (accts.length) { msalAccount = accts[0]; await launchApp(); }
+  } catch (e) {
+    console.error('MSAL init failed', e);
+    showLoginError('Sign-in setup failed: ' + (e && e.message ? e.message : e));
+  }
+}
+
+function isRunningInPopup() { try { return !!(window.opener && window.opener !== window); } catch(_) { return false; } }
+
+async function signInOneDrive() {
+  if (!msalInstance) { showLoginError('OneDrive is not configured on this page yet.'); return; }
+  try {
+    if (isRunningInPopup()) { await msalInstance.loginRedirect({ scopes: ONEDRIVE_CONFIG.scopes }); return; }
+    const res = await msalInstance.loginPopup({ scopes: ONEDRIVE_CONFIG.scopes });
+    msalAccount = res.account;
+    await launchApp();
+  } catch (e) {
+    console.error('Sign-in error', e);
+    if (e && (e.errorCode === 'popup_window_error' || /running in a popup/i.test(e.message || ''))) {
+      try { await msalInstance.loginRedirect({ scopes: ONEDRIVE_CONFIG.scopes }); return; } catch(_) {}
+    }
+    showLoginError('Sign-in failed: ' + ((e && (e.errorMessage || e.message)) || 'unknown error'));
+  }
+}
+
+function signOut() {
+  try { if (msalInstance && msalAccount) msalInstance.logoutRedirect({ account: msalAccount }); } catch(_) {}
+  location.reload();
+}
+
+async function getAccessToken() {
+  const req = { scopes: ONEDRIVE_CONFIG.scopes, account: msalAccount };
+  try { return (await msalInstance.acquireTokenSilent(req)).accessToken; }
+  catch (e) {
+    if (isRunningInPopup()) { await msalInstance.acquireTokenRedirect(req); throw new Error('redirecting'); }
+    try { return (await msalInstance.acquireTokenPopup(req)).accessToken; }
+    catch (pe) { await msalInstance.acquireTokenRedirect(req); throw pe; }
+  }
+}
+
+function showSetupNotice() {
+  const el = document.getElementById('setupNotice');
+  el.style.display = 'block';
+  el.textContent = 'OneDrive isn’t configured on this page (clientId missing) — running in local-only mode.';
+}
+function showLoginError(msg) {
+  const el = document.getElementById('loginError');
+  el.style.display = 'block'; el.textContent = msg;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   GRAPH READ/WRITE — generalized version of the shared-file pattern
+   used by the sales tracker (resolveSharedFileRef / drive root fallback).
+   Every path lives in the same OXEFIT folder on demo@core-velocity.com.
+════════════════════════════════════════════════════════════════════ */
+function sharedItemContentUrl(ref) {
+  return `https://graph.microsoft.com/v1.0/drives/${encodeURIComponent(ref.driveId)}/items/${encodeURIComponent(ref.itemId)}/content`;
+}
+function driveRootUrl(filePath) {
+  const upn = ONEDRIVE_CONFIG.sharedDriveUser;
+  return `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(upn)}/drive/root:${filePath}:/content`;
+}
+async function resolveSharedFileRef(tok, filePath, force) {
+  const fname = (filePath.split('/').pop() || '').toLowerCase();
+  if (_sharedFileRefs[filePath] && !force) return _sharedFileRefs[filePath];
+  try {
+    const res = await fetch('https://graph.microsoft.com/v1.0/me/drive/sharedWithMe', { headers: { Authorization: 'Bearer ' + tok } });
+    if (!res.ok) return null;
+    const body = await res.json();
+    const items = (body && Array.isArray(body.value)) ? body.value : [];
+    for (const it of items) {
+      const ri = it.remoteItem || it;
+      const name = (it.name || ri.name || '').toLowerCase();
+      const driveId = ri.parentReference && ri.parentReference.driveId;
+      const itemId = ri.id;
+      if (!driveId || !itemId) continue;
+      if (name === fname) { _sharedFileRefs[filePath] = { driveId, itemId }; return _sharedFileRefs[filePath]; }
+      if (ri.folder) {
+        try {
+          const ch = await fetch(`https://graph.microsoft.com/v1.0/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}/children`, { headers: { Authorization: 'Bearer ' + tok } });
+          if (ch.ok) {
+            const kids = await ch.json();
+            const hit = (kids.value || []).find(k => (k.name || '').toLowerCase() === fname);
+            if (hit) { _sharedFileRefs[filePath] = { driveId, itemId: hit.id }; return _sharedFileRefs[filePath]; }
+          }
+        } catch(_) {}
+      }
+    }
+  } catch(_) {}
+  return null;
+}
+async function readJsonFile(filePath) {
+  try {
+    const tok = await getAccessToken();
+    const ref = await resolveSharedFileRef(tok, filePath);
+    let res;
+    if (ref) {
+      res = await fetch(sharedItemContentUrl(ref), { headers: { Authorization: 'Bearer ' + tok } });
+      if (res.status === 404) {
+        const fresh = await resolveSharedFileRef(tok, filePath, true);
+        if (fresh) res = await fetch(sharedItemContentUrl(fresh), { headers: { Authorization: 'Bearer ' + tok } });
+      }
+    }
+    if (!ref || res.status === 404) {
+      res = await fetch(driveRootUrl(filePath), { headers: { Authorization: 'Bearer ' + tok } });
+    }
+    if (res.status === 404) return { ok: false, status: 404, note: 'File not found at ' + filePath };
+    if (res.status === 403) return { ok: false, status: 403, note: 'No access to ' + filePath + ' — ask admin to share the OXEFIT folder with you.' };
+    if (!res.ok) return { ok: false, status: res.status, note: 'HTTP ' + res.status + ' reading ' + filePath };
+    const json = await res.json();
+    return { ok: true, data: json };
+  } catch (e) {
+    return { ok: false, status: 0, note: (e && e.message) || String(e) };
+  }
+}
+async function writeJsonFile(filePath, obj) {
+  try {
+    const tok = await getAccessToken();
+    const ref = await resolveSharedFileRef(tok, filePath) || { seed: true };
+    const url = ref.driveId ? sharedItemContentUrl(ref) : driveRootUrl(filePath);
+    const res = await fetch(url, { method: 'PUT', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: JSON.stringify(obj) });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return true;
+  } catch (e) {
+    console.error('write failed', filePath, e);
+    return false;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   LOAD ALL SOURCES
+════════════════════════════════════════════════════════════════════ */
+async function refreshAll() {
+  setSync('syncing', 'Loading…');
+  const [s, h, f, o] = await Promise.all([
+    readJsonFile(SOURCES.sales), readJsonFile(SOURCES.hr), readJsonFile(SOURCES.finance), readJsonFile(OWN_FILE)
+  ]);
+  HEALTH.sales = s; HEALTH.hr = h; HEALTH.finance = f; HEALTH.own = o;
+  RAW.sales = s.ok ? s.data : null;
+  RAW.hr = h.ok ? h.data : null;
+  RAW.finance = f.ok ? f.data : null;
+  RAW.own = o.ok ? o.data : { manual: {}, snapshots: {} };
+  const anyOk = s.ok || h.ok || f.ok;
+  setSync(anyOk ? 'ok' : 'error', anyOk ? 'Synced ' + new Date().toLocaleTimeString() : 'Could not reach sources');
+  computeAll();
+  renderAll();
+}
+
+function setSync(state, label) {
+  const b = document.getElementById('syncBadge');
+  b.className = state; b.textContent = label;
+}
+
+async function launchApp() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  document.getElementById('userLine').textContent = (msalAccount && msalAccount.username) || '';
+  document.getElementById('periodLabel').textContent = fmtMonth(new Date()) + ' · FY' + new Date().getFullYear();
+  await refreshAll();
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   HELPERS — dates, formatting, parsing
+════════════════════════════════════════════════════════════════════ */
+// Sales tracker month-bucket keys are `${year}-${month}` with month
+// ZERO-indexed (its own getMonthKey() = `${y}-${m}`, called with
+// JS Date.getMonth() values — Jan=0 ... Dec=11). No +1 here, on purpose.
+function monthKey(d) { return d.getFullYear() + '-' + d.getMonth(); }
+function fmtMonth(d) { return d.toLocaleString('en-GB', { month: 'long', year: 'numeric' }); }
+function fmtAED(n) { n = Number(n) || 0; return 'AED ' + Math.round(n).toLocaleString('en-US'); }
+function pct(n) { return (Number(n) || 0).toFixed(0) + '%'; }
+function monthsOfFY(uptoDate) {
+  const out = []; const y = uptoDate.getFullYear();
+  for (let m = FY_START_MONTH; m <= uptoDate.getMonth(); m++) out.push(y + '-' + m);
+  return out;
+}
+function safeArr(x) { return Array.isArray(x) ? x : []; }
+function safeObj(x) { return (x && typeof x === 'object') ? x : {}; }
+
+// Sales envelope, same shape written by the sales tracker.
+function unwrapSalesEnvelope(remote) {
+  if (remote && typeof remote === 'object' && remote._envelope === 'oxefit-v1') {
+    return {
+      data: safeObj(remote.data),
+      followups: safeArr(remote.followups),
+      roster: safeObj(remote.roster),
+      products: safeArr(remote.products),
+      quotes: safeArr(remote.quotes)
+    };
+  }
+  return { data: safeObj(remote), followups: [], roster: {}, products: [], quotes: [] };
+}
+
+// HR — tolerant of a couple of possible top-level shapes.
+function unwrapHR(remote) {
+  const r = safeObj(remote);
+  const S = Array.isArray(r.employees) ? r : safeObj(r.S || r.state || r.data);
+  return { employees: safeArr(S.employees), leaves: safeArr(S.leaves), payruns: safeArr(S.payruns), reviews: safeArr(S.reviews) };
+}
+function totalSalary(e) { return (Number(e.basic)||0) + (Number(e.housing)||0) + (Number(e.transport)||0) + (Number(e.other)||0); }
+
+// Finance — envelope is {_app:'corev-finance', performance:{v:{...}}, commission:{REPS:[...]}, reminders:{CTRL:{...}}, ...}
+function unwrapFinance(remote) {
+  const r = safeObj(remote);
+  const perf = safeObj(r.performance);
+  const commission = safeObj(r.commission);
+  const reminders = safeObj(r.reminders);
+  return {
+    v: safeObj(perf.v), sal: safeObj(perf.sal), map: safeObj(perf.map), reps: safeArr(perf.reps),
+    REPS: safeArr(commission.REPS),               // [{name, target, deals:[{cust, gross, month, future, hsId, ...}]}]
+    CTRL: safeObj(reminders.CTRL),                 // {oxeItems:{dealKey:[{sku,qty}]}, oxePaid:{...}, ...}
+    raw: r
+  };
+}
+
+// Mirrors the Finance tool's own dealKey(): stable identity for a closed deal,
+// used to look up its OxeFit device mapping in CTRL.oxeItems.
+function financeDealKey(d) {
+  return d.hsId ? ('hs:' + d.hsId) : ('m:' + (d.rep || '') + '|' + (d.customer || '') + '|' + (d.month || ''));
+}
+// Flattens Finance's REPS[].deals[] into the same {rep, customer, gross, month, future, hsId}
+// shape the Finance tool itself builds in publishStore(), so dealKey() lines up.
+function financeClosedDeals(fin) {
+  const out = [];
+  fin.REPS.forEach(r => safeArr(r.deals).forEach(d => {
+    out.push({ rep: r.name, customer: d.cust, gross: Number(d.gross) || 0, month: d.month || '', future: !!d.future, hsId: d.hsId || null });
+  }));
+  return out.filter(d => d.gross); // Finance itself only treats deals with a gross amount as real/closed
+}
+const MON3 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+// Finance deal.month is a free-text label like "Sep/26" — normalize both sides
+// (lowercase, strip separators) so small formatting differences still match.
+function normMonthLabel(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
+function monthLabelFor(d) { return MON3[d.getMonth()] + '/' + String(d.getFullYear()).slice(2); }
+
+// Product type -> XS1 / XP1 / Other, based on the catalog Type naming
+// seen in the sales tracker (XFIT-*/PEAK/FLOW = XS1 family, APEX/XP1-* = XP1 family).
+function classifyProductType(type) {
+  const t = String(type || '').toUpperCase();
+  if (!t) return 'Other';
+  if (t.includes('APEX') || t.startsWith('XP1')) return 'XP1';
+  if (t.includes('XFIT') || t.includes('FLOW') || t.includes('PEAK')) return 'XS1';
+  return 'Other';
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   COMPUTE — turns RAW source data into the a-g report figures
+════════════════════════════════════════════════════════════════════ */
+function computeAll() {
+  const now = new Date();
+  const thisMonthKey = monthKey(now);
+  const fyMonths = monthsOfFY(now);
+  const sales = unwrapSalesEnvelope(RAW.sales);
+  const hr = unwrapHR(RAW.hr);
+  const fin = unwrapFinance(RAW.finance);
+  const own = safeObj(RAW.own);
+  const manual = safeObj(own.manual);
+
+  // ---- helper: flatten all rows for a given month key ----
+  function rowsForMonth(mk) {
+    const bucket = sales.data[mk];
+    if (!bucket || !Array.isArray(bucket.weeks)) return [];
+    return bucket.weeks.reduce((a, wk) => a.concat(Array.isArray(wk) ? wk : []), []);
+  }
+  function sumField(rows, field) { return rows.reduce((a, r) => a + (Number(r[field]) || 0), 0); }
+
+  // closedWon is written as a running month-to-date SNAPSHOT into each week's
+  // row, not an incremental weekly amount — the tracker's own exec dashboard
+  // takes the MAX per rep across that month's weeks (never sums them) so a
+  // stale copy sitting in another week slot can't double/triple-count.
+  // Mirrors execAggForMonth() in the sales tracker.
+  function closedWonForMonth(mk) {
+    const bucket = sales.data[mk];
+    if (!bucket || !Array.isArray(bucket.weeks)) return 0;
+    const maxByRep = {};
+    bucket.weeks.forEach(wk => {
+      (Array.isArray(wk) ? wk : []).forEach(r => {
+        if (!r || !r.rep) return;
+        const v = Number(r.closedWon) || 0;
+        maxByRep[r.rep] = Math.max(maxByRep[r.rep] || 0, v);
+      });
+    });
+    return Object.values(maxByRep).reduce((a, v) => a + v, 0);
+  }
+  function closedWonForMonths(mks) { return mks.reduce((a, mk) => a + closedWonForMonth(mk), 0); }
+
+  // ---- (a) sales achieved vs committed ----
+  const thisMonthRows = rowsForMonth(thisMonthKey);
+  const fyRows = fyMonths.reduce((a, mk) => a.concat(rowsForMonth(mk)), []);
+  const salesA = {
+    fyAchieved: closedWonForMonths(fyMonths),
+    monthAchieved: closedWonForMonth(thisMonthKey),
+    monthCommitted: sumField(thisMonthRows, 'commitValue'),
+    monthBestCase: sumField(thisMonthRows, 'bestCaseValue')
+  };
+
+  // ---- (b) commitments for delivering XS1 / XP1 ----
+  function unitCounts(rows) { return { xs1: sumField(rows, 'forecastXS1'), xp1: sumField(rows, 'forecastXP1') }; }
+  const committedUnits = unitCounts(thisMonthRows);
+
+  // Closed/won units this month, from Finance's OxeFit device mapping
+  // (Payouts & OxeFit): each closed deal this month -> its oxeItems SKUs -> XS1/XP1.
+  const thisMonthLabel = normMonthLabel(monthLabelFor(now));
+  const closedDealsThisMonth = financeClosedDeals(fin).filter(d => normMonthLabel(d.month) === thisMonthLabel);
+  let closedXS1 = 0, closedXP1 = 0, closedUnmapped = 0, closedDealsWithoutMapping = 0;
+  closedDealsThisMonth.forEach(d => {
+    const items = fin.CTRL.oxeItems ? fin.CTRL.oxeItems[financeDealKey(d)] : null;
+    if (!items || !items.length) { closedDealsWithoutMapping++; return; }
+    items.forEach(it => {
+      const qty = Number(it.qty) || 0;
+      const cls = classifyProductType(it.sku);
+      if (cls === 'XS1') closedXS1 += qty;
+      else if (cls === 'XP1') closedXP1 += qty;
+      else closedUnmapped += qty;
+    });
+  });
+  const ordersB = {
+    committed: committedUnits,
+    closed: { xs1: closedXS1, xp1: closedXP1, unmapped: closedUnmapped },
+    closedDealsCount: closedDealsThisMonth.length,
+    closedDealsWithoutMapping
+  };
+
+  // ---- (c) finance: cost vs income ----
+  const activeEmployees = hr.employees.filter(e => (e.status || 'Active') === 'Active');
+  const salaries = activeEmployees.reduce((a, e) => a + totalSalary(e), 0);
+  const rent = Number(fin.v.pf_cenb_0) || CENTRAL_DEFAULTS.rentWarehouse;
+  const marketing = Number(fin.v.pf_cenb_8) || CENTRAL_DEFAULTS.marketing;
+  const totalCost = salaries + rent + marketing;
+  const incomeOxefit = Number(manual.incomeOxefit) || 0;
+  const financeC = { salaries, rent, marketing, totalCost, incomeOxefit, gap: incomeOxefit - totalCost };
+
+  // ---- (d) showroom/warehouse relocation — fully manual ----
+  const relocation = manual.relocation || {};
+
+  // ---- (e) FY targets ----
+  const goals = safeObj((sales.data.perfMeta || {}).goals);
+  let fyTarget = 0;
+  fyMonths.forEach(mk => { const g = safeObj(goals[mk]); Object.keys(g).forEach(rep => { fyTarget += Number(g[rep]) || 0; }); });
+  const targetsE = {
+    fyTarget, fyAchieved: salesA.fyAchieved,
+    progressPct: fyTarget > 0 ? (salesA.fyAchieved / fyTarget * 100) : 0,
+    costReductionTarget: Number(manual.costReductionTarget) || 0,
+    costReductionAchieved: Number(manual.costReductionAchieved) || 0
+  };
+
+  // ---- (f) marketing leads this month ----
+  const leadsThisMonth = sales.followups.filter(l => {
+    const d = l.createdAt ? new Date(l.createdAt) : null;
+    return d && monthKey(d) === thisMonthKey;
+  });
+  const leadStages = {};
+  leadsThisMonth.forEach(l => { const st = l.stage || 'New'; leadStages[st] = (leadStages[st] || 0) + 1; });
+  const leadsF = { total: leadsThisMonth.length, byStage: leadStages, list: leadsThisMonth };
+
+  // ---- (g) employees ----
+  const roster = safeObj(sales.roster);
+  const teams = (roster.teams && Object.keys(roster.teams).length) ? roster.teams : FALLBACK_TEAMS;
+  const repNames = new Set();
+  Object.values(teams).forEach(list => safeArr(list).forEach(n => repNames.add(n)));
+  hr.employees.forEach(e => { if (e.name) repNames.add(e.name); });
+
+  function closuresThisMonth(name) {
+    return thisMonthRows.filter(r => r.rep === name && Number(r.closedWon) > 0).length;
+  }
+  const employeeNotes = safeObj(manual.employeeNotes);
+  const teamG = Array.from(repNames).sort().map(name => {
+    const hrRec = hr.employees.find(e => e.name === name);
+    const region = Object.keys(teams).find(k => safeArr(teams[k]).includes(name)) || (hrRec && hrRec.department) || '—';
+    return {
+      name, region,
+      status: hrRec ? hrRec.status : (ADMIN_REPS.includes(name) ? 'Admin' : '—'),
+      designation: hrRec ? hrRec.designation : '',
+      closuresThisMonth: closuresThisMonth(name),
+      note: employeeNotes[name] || ''
+    };
+  });
+
+  computed = { now, thisMonthKey, fyMonths, salesA, ordersB, financeC, relocation, targetsE, leadsF, teamG, sales, hr, fin };
+  return computed;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   RENDER
+════════════════════════════════════════════════════════════════════ */
+function renderAll() {
+  renderSales(); renderFinance(); renderShowroom(); renderTargets(); renderLeads(); renderTeam(); renderHealth(); renderReport();
+}
+
+function cardHtml(title, big, sub, tag) {
+  return `<div class="card"><h3>${title}${tag ? `<span class="${tag==='AUTO'?'auto-tag':'manual-tag'}">${tag}</span>` : ''}</h3><div class="big">${big}</div><div class="sub">${sub||''}</div></div>`;
+}
+
+function renderSales() {
+  const c = computed;
+  document.getElementById('salesCards').innerHTML = [
+    cardHtml('FY-to-date achieved', fmtAED(c.salesA.fyAchieved), 'Jan – ' + fmtMonth(c.now)),
+    cardHtml('This month achieved', fmtAED(c.salesA.monthAchieved), fmtMonth(c.now)),
+    cardHtml('This month committed', fmtAED(c.salesA.monthCommitted), 'Commit slot, weekly sheet'),
+    cardHtml('This month best case', fmtAED(c.salesA.monthBestCase), 'Upside on top of commit')
+  ].join('');
+
+  const ob = c.ordersB;
+  document.getElementById('ordersCards').innerHTML = [
+    cardHtml('Committed — XS1', ob.committed.xs1, fmtMonth(c.now) + ' · commit sheet', 'AUTO'),
+    cardHtml('Committed — XP1', ob.committed.xp1, fmtMonth(c.now) + ' · commit sheet', 'AUTO'),
+    cardHtml('Closed — XS1', ob.closed.xs1, fmtMonth(c.now) + ' · Payouts & OxeFit', 'AUTO'),
+    cardHtml('Closed — XP1', ob.closed.xp1, fmtMonth(c.now) + ' · Payouts & OxeFit', 'AUTO')
+  ].join('');
+
+  document.getElementById('ordersTable').innerHTML = `
+    <tr><th>Basis</th><th>XS1 units</th><th>XP1 units</th><th>Total</th></tr>
+    <tr><td>Committed (weekly commit sheet)</td><td>${ob.committed.xs1}</td><td>${ob.committed.xp1}</td><td>${ob.committed.xs1+ob.committed.xp1}</td></tr>
+    <tr><td>Closed / won (Payouts &amp; OxeFit)</td><td>${ob.closed.xs1}</td><td>${ob.closed.xp1}</td><td>${ob.closed.xs1+ob.closed.xp1}</td></tr>`
+    + (ob.closedDealsWithoutMapping > 0 ? `<tr><td colspan="4" style="color:var(--warn);font-size:12px;">${ob.closedDealsWithoutMapping} of ${ob.closedDealsCount} closed deal(s) this month have no device mapping yet in Finance's Payouts &amp; OxeFit view — their units aren't counted above.</td></tr>` : '')
+    + (ob.closed.unmapped > 0 ? `<tr><td colspan="4" style="color:var(--warn);font-size:12px;">${ob.closed.unmapped} closed unit(s) had a SKU I couldn't classify as XS1 or XP1 — check Data Health.</td></tr>` : '');
+}
+
+function renderFinance() {
+  const c = computed.financeC;
+  document.getElementById('financeCards').innerHTML = [
+    cardHtml('Salaries', fmtAED(c.salaries), 'Active employees · HR tool', 'AUTO'),
+    cardHtml('Showroom + warehouse rent', fmtAED(c.rent), 'Finance central pool', 'AUTO'),
+    cardHtml('Marketing budget', fmtAED(c.marketing), 'Finance central pool', 'AUTO'),
+    cardHtml('Total cost', fmtAED(c.totalCost), 'Salaries + rent + marketing', 'AUTO')
+  ].join('') + cardHtml('Income to OxeFit', fmtAED(c.incomeOxefit), 'Entered manually below', 'MANUAL')
+    + `<div class="card"><h3>Gap (Income − Cost)</h3><div class="big" style="color:${c.gap>=0?'var(--ok)':'var(--bad)'}">${c.gap>=0?'+':''}${fmtAED(c.gap)}</div><div class="sub">Positive = OxeFit income covers cost</div></div>`;
+
+  document.getElementById('mIncomeOxefit').value = c.incomeOxefit || '';
+  const own = safeObj(RAW.own); const manual = safeObj(own.manual);
+  document.getElementById('mFinanceNote').value = manual.financeNote || '';
+}
+
+function renderShowroom() {
+  const rel = computed.relocation || {};
+  const props = ['Dubai showroom', 'Abu Dhabi showroom', 'Warehouse'];
+  document.getElementById('relocationForms').innerHTML = props.map(p => {
+    const key = p.replace(/\s+/g,'_');
+    const v = rel[key] || {};
+    return `<div class="card" style="margin-bottom:12px;">
+      <h3>${p}</h3>
+      <div class="field-row">
+        <div class="field"><label>Status</label>
+          <select id="rel_${key}_status">
+            ${['Not started','Searching','Shortlisting','Negotiating','Signed','Fit-out','Moved in'].map(s=>`<option ${v.status===s?'selected':''}>${s}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field"><label>% complete</label><input type="number" min="0" max="100" id="rel_${key}_pct" value="${v.pct||0}"></div>
+        <div class="field"><label>Target move date</label><input type="date" id="rel_${key}_date" value="${v.date||''}"></div>
+        <div class="field"><label>Current rent (AED/mo)</label><input type="number" id="rel_${key}_currentRent" value="${v.currentRent||''}"></div>
+        <div class="field"><label>New rent (AED/mo)</label><input type="number" id="rel_${key}_newRent" value="${v.newRent||''}"></div>
+      </div>
+      <div class="field"><label>Notes</label><textarea id="rel_${key}_notes">${v.notes||''}</textarea></div>
+      <div class="progress" style="margin-top:8px;"><div style="width:${v.pct||0}%"></div></div>
+    </div>`;
+  }).join('');
+}
+
+function renderTargets() {
+  const t = computed.targetsE;
+  document.getElementById('targetCards').innerHTML = [
+    cardHtml('FY sales target', fmtAED(t.fyTarget), 'Sum of monthly rep goals, Jan–Dec', 'AUTO'),
+    cardHtml('FY achieved', fmtAED(t.fyAchieved), pct(t.progressPct) + ' of target', 'AUTO'),
+    cardHtml('Cost reduction vs target', fmtAED(t.costReductionAchieved) + ' / ' + fmtAED(t.costReductionTarget), t.costReductionTarget>0?pct(t.costReductionAchieved/t.costReductionTarget*100)+' of target':'No target set', 'MANUAL')
+  ].join('');
+  document.getElementById('mCostReductionTarget').value = t.costReductionTarget || '';
+  document.getElementById('mCostReductionAchieved').value = t.costReductionAchieved || '';
+}
+
+function renderLeads() {
+  const l = computed.leadsF;
+  const stageCards = Object.keys(l.byStage).map(st => cardHtml(st, l.byStage[st], 'leads')).join('');
+  document.getElementById('leadsCards').innerHTML = cardHtml('Total leads this month', l.total, fmtMonth(computed.now), 'AUTO') + stageCards;
+  document.getElementById('leadsTable').innerHTML = `<tr><th>Name</th><th>Company</th><th>Stage</th><th>Source</th><th>Owner</th></tr>` +
+    l.list.map(x => `<tr><td>${x.name||''}</td><td>${x.company||''}</td><td><span class="badge muted">${x.stage||''}</span></td><td>${x.source||''}</td><td>${x.owner||x.assignee||''}</td></tr>`).join('');
+}
+
+function renderTeam() {
+  document.getElementById('teamList').innerHTML = computed.teamG.map(e => `
+    <div class="emp-card">
+      <div class="row1">
+        <div><span class="name">${e.name}</span> <span class="meta">${e.designation||''} · ${e.region}</span></div>
+        <span class="badge ${e.status==='Active'?'ok':e.status==='Exited'?'bad':'warn'}">${e.status}</span>
+      </div>
+      <div class="meta" style="margin:6px 0;">Deals closed this month: <b>${e.closuresThisMonth}</b></div>
+      <textarea placeholder="Achievement / closure note this week…" id="note_${e.name.replace(/\s+/g,'_')}">${e.note}</textarea>
+    </div>`).join('');
+}
+
+function renderHealth() {
+  const rows = [
+    ['sales', SOURCES.sales, computed.sales.data ? Object.keys(computed.sales.data).length + ' month buckets, ' + computed.sales.followups.length + ' leads' : ''],
+    ['hr', SOURCES.hr, computed.hr.employees.length + ' employees'],
+    ['finance', SOURCES.finance, Object.keys(computed.fin.v).length + ' saved fields'],
+    ['own', OWN_FILE, 'manual inputs + snapshots']
+  ];
+  document.getElementById('healthCards').innerHTML = rows.map(([key, path, note]) => {
+    const h = HEALTH[key] || {};
+    const ok = h.ok;
+    return `<div class="card"><h3>${key}</h3><div class="big" style="font-size:16px;"><span class="badge ${ok?'ok':'bad'}">${ok?'Loaded':'Failed'}</span></div><div class="sub">${path}</div><div class="sub">${ok ? note : (h.note||'')}</div></div>`;
+  }).join('');
+  const ob = computed.ordersB;
+  document.getElementById('healthDetail').innerHTML = `<p class="hint">Raw finance fields read (performance.v): rent override <code>pf_cenb_0</code> = ${computed.fin.v.pf_cenb_0 ?? '(using default '+CENTRAL_DEFAULTS.rentWarehouse+')'} · marketing override <code>pf_cenb_8</code> = ${computed.fin.v.pf_cenb_8 ?? '(using default '+CENTRAL_DEFAULTS.marketing+')'}.</p>
+  <p class="hint">Closed Won here is computed from the sales tracker's OneDrive file (max per rep, per month — matches its exec dashboard's fallback logic). The tracker's dashboard can also override this with a HubSpot-refreshed cache that lives only in your browser's local storage, never in the OneDrive file, so if you've recently clicked "Refresh from HubSpot" there this figure may still be a few deals behind. Ask if you want this pulled live from HubSpot instead for an exact match.</p>
+  <p class="hint">Closed XS1/XP1 units: read ${computed.fin.REPS.length} rep(s) from Finance's commission data, ${ob.closedDealsCount} closed deal(s) matched to this month, ${ob.closedDealsWithoutMapping} without a device mapping yet in Payouts &amp; OxeFit, ${ob.closed.unmapped} unit(s) with an unrecognized SKU. Device mapping read from <code>reminders.CTRL.oxeItems</code> (${Object.keys(computed.fin.CTRL.oxeItems||{}).length} deals mapped in total).</p>`;
+}
+
+function renderReport() {
+  const c = computed;
+  const heroKpi = (lbl, val, foot) => `<div class="hero-kpi"><div class="lbl">${lbl}</div><div class="val">${val}</div><div class="foot">${foot||''}</div></div>`;
+  const totalClosedUnits = c.ordersB.closed.xs1 + c.ordersB.closed.xp1;
+
+  const html = `
+    <div class="report-hero">
+      <div class="eyebrow">Weekly Business Report · Core Velocity → OxeFit</div>
+      <h1>${fmtMonth(c.now)}</h1>
+      <div class="meta-line">Generated ${c.now.toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'})} · FY${c.now.getFullYear()} to date</div>
+      <div class="hero-kpis">
+        ${heroKpi('FY Achieved', fmtAED(c.salesA.fyAchieved), pct(c.targetsE.progressPct) + ' of FY target')}
+        ${heroKpi('This Month Achieved', fmtAED(c.salesA.monthAchieved), 'vs. committed ' + fmtAED(c.salesA.monthCommitted))}
+        ${heroKpi('Units Closed', String(totalClosedUnits), c.ordersB.closed.xs1 + ' XS1 · ' + c.ordersB.closed.xp1 + ' XP1')}
+        ${heroKpi('Leads This Month', String(c.leadsF.total), Object.keys(c.leadsF.byStage).length + ' stage(s) active')}
+        ${heroKpi('Finance Gap', (c.financeC.gap>=0?'+':'') + fmtAED(c.financeC.gap), 'Income − cost')}
+      </div>
+    </div>
+
+    <div class="rsec">
+      <div class="rsec-head"><span class="letter">a</span><h2>Sales achieved vs. committed</h2><span class="rsub">${fmtMonth(c.now)}</span></div>
+      <div class="grid cols-4">
+        ${cardHtml('FY-to-date achieved', fmtAED(c.salesA.fyAchieved), 'Jan – ' + fmtMonth(c.now))}
+        ${cardHtml('This month achieved', fmtAED(c.salesA.monthAchieved), fmtMonth(c.now))}
+        ${cardHtml('This month committed', fmtAED(c.salesA.monthCommitted), 'Commit slot, weekly sheet')}
+        ${cardHtml('This month best case', fmtAED(c.salesA.monthBestCase), 'Upside on top of commit')}
+      </div>
+    </div>
+
+    <div class="rsec">
+      <div class="rsec-head"><span class="letter">b</span><h2>Commitments for Delivering XS1 and XP1</h2><span class="rsub">${fmtMonth(c.now)}</span></div>
+      <div class="grid cols-4">
+        ${cardHtml('Committed — XS1', c.ordersB.committed.xs1, 'Weekly commit sheet')}
+        ${cardHtml('Committed — XP1', c.ordersB.committed.xp1, 'Weekly commit sheet')}
+        ${cardHtml('Closed — XS1', c.ordersB.closed.xs1, 'Payouts & OxeFit')}
+        ${cardHtml('Closed — XP1', c.ordersB.closed.xp1, 'Payouts & OxeFit')}
+      </div>
+    </div>
+
+    <div class="rsec">
+      <div class="rsec-head"><span class="letter">c</span><h2>Finance — cost vs. income</h2><span class="rsub">${fmtMonth(c.now)}</span></div>
+      <div class="grid cols-4">
+        ${cardHtml('Salaries', fmtAED(c.financeC.salaries), 'Active employees')}
+        ${cardHtml('Rent (showroom + warehouse)', fmtAED(c.financeC.rent), 'Finance central pool')}
+        ${cardHtml('Marketing budget', fmtAED(c.financeC.marketing), 'Finance central pool')}
+        ${cardHtml('Total cost', fmtAED(c.financeC.totalCost), 'Salaries + rent + marketing')}
+      </div>
+      <div class="grid cols-2" style="margin-top:12px;">
+        ${cardHtml('Income to OxeFit', fmtAED(c.financeC.incomeOxefit), 'Entered manually')}
+        <div class="card"><h3>Gap (income − cost)</h3><div class="big" style="color:${c.financeC.gap>=0?'var(--ok)':'var(--bad)'}">${c.financeC.gap>=0?'+':''}${fmtAED(c.financeC.gap)}</div><div class="sub">Positive = OxeFit income covers cost</div></div>
+      </div>
+    </div>
+
+    <div class="rsec">
+      <div class="rsec-head"><span class="letter">d</span><h2>Showroom &amp; warehouse relocation</h2></div>
+      <div class="rtable-wrap"><table>
+        <tr><th>Property</th><th>Status</th><th>% complete</th><th>Target date</th><th>Rent (current → new)</th><th>Notes</th></tr>
+        ${['Dubai showroom','Abu Dhabi showroom','Warehouse'].map(p=>{const k=p.replace(/\s+/g,'_');const v=(c.relocation[k]||{});return `<tr><td>${p}</td><td><span class="badge muted">${v.status||'Not started'}</span></td><td>${v.pct||0}%</td><td>${v.date||'—'}</td><td>${v.currentRent?fmtAED(v.currentRent):'—'} → ${v.newRent?fmtAED(v.newRent):'—'}</td><td>${v.notes||''}</td></tr>`;}).join('')}
+      </table></div>
+    </div>
+
+    <div class="rsec">
+      <div class="rsec-head"><span class="letter">e</span><h2>FY target progress</h2></div>
+      <div class="grid cols-3">
+        ${cardHtml('FY sales target', fmtAED(c.targetsE.fyTarget), 'Sum of monthly rep goals')}
+        ${cardHtml('FY achieved', fmtAED(c.targetsE.fyAchieved), pct(c.targetsE.progressPct) + ' of target')}
+        ${cardHtml('Cost reduction · achieved / target', fmtAED(c.targetsE.costReductionAchieved) + ' / ' + fmtAED(c.targetsE.costReductionTarget), '')}
+      </div>
+      <div class="progress" style="margin-top:12px;"><div style="width:${Math.min(100, c.targetsE.progressPct)}%"></div></div>
+    </div>
+
+    <div class="rsec">
+      <div class="rsec-head"><span class="letter">f</span><h2>Marketing leads this month</h2><span class="rsub">${c.leadsF.total} total</span></div>
+      <div class="grid cols-4">
+        ${Object.keys(c.leadsF.byStage).map(s => cardHtml(s, c.leadsF.byStage[s], 'leads')).join('') || '<div class="rtable-wrap"><div class="empty">No leads recorded this month</div></div>'}
+      </div>
+    </div>
+
+    <div class="rsec">
+      <div class="rsec-head"><span class="letter">g</span><h2>Employee status &amp; closures</h2></div>
+      <div class="rtable-wrap"><table>
+        <tr><th>Name</th><th>Region</th><th>Status</th><th>Closed this month</th><th>Note</th></tr>
+        ${c.teamG.map(e=>`<tr><td>${e.name}</td><td>${e.region}</td><td><span class="badge ${e.status==='Active'?'ok':e.status==='Exited'?'bad':'warn'}">${e.status}</span></td><td>${e.closuresThisMonth}</td><td>${e.note||''}</td></tr>`).join('')}
+      </table></div>
+    </div>
+  `;
+  document.getElementById('reportBody').innerHTML = html;
+
+  const own = safeObj(RAW.own); const snaps = safeObj(own.snapshots);
+  const keys = Object.keys(snaps).sort();
+  const last = keys.length ? keys[keys.length-1] : null;
+  document.getElementById('lastSnapshotLine').textContent = last ? ('Last snapshot saved: ' + last) : 'No snapshot saved yet';
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   MANUAL INPUT PERSISTENCE
+════════════════════════════════════════════════════════════════════ */
+function collectManualInputs() {
+  const own = safeObj(RAW.own);
+  const manual = Object.assign({}, safeObj(own.manual));
+  manual.incomeOxefit = Number(document.getElementById('mIncomeOxefit').value) || 0;
+  manual.financeNote = document.getElementById('mFinanceNote').value || '';
+  manual.costReductionTarget = Number(document.getElementById('mCostReductionTarget').value) || 0;
+  manual.costReductionAchieved = Number(document.getElementById('mCostReductionAchieved').value) || 0;
+
+  const relocation = {};
+  ['Dubai showroom','Abu Dhabi showroom','Warehouse'].forEach(p => {
+    const k = p.replace(/\s+/g,'_');
+    const el = id => document.getElementById(id);
+    if (!el(`rel_${k}_status`)) return;
+    relocation[k] = {
+      status: el(`rel_${k}_status`).value,
+      pct: Number(el(`rel_${k}_pct`).value) || 0,
+      date: el(`rel_${k}_date`).value || '',
+      currentRent: Number(el(`rel_${k}_currentRent`).value) || 0,
+      newRent: Number(el(`rel_${k}_newRent`).value) || 0,
+      notes: el(`rel_${k}_notes`).value || ''
+    };
+  });
+  manual.relocation = relocation;
+
+  const employeeNotes = {};
+  (computed.teamG || []).forEach(e => {
+    const el = document.getElementById('note_' + e.name.replace(/\s+/g,'_'));
+    if (el) employeeNotes[e.name] = el.value;
+  });
+  manual.employeeNotes = employeeNotes;
+
+  return manual;
+}
+
+async function saveManualInputs() {
+  const manual = collectManualInputs();
+  const own = Object.assign({}, safeObj(RAW.own), { manual });
+  setSync('syncing', 'Saving…');
+  const okWrite = await writeJsonFile(OWN_FILE, own);
+  RAW.own = own;
+  computeAll(); renderAll();
+  setSync(okWrite ? 'ok' : 'error', okWrite ? 'Saved' : 'Save failed — check connection');
+}
+
+async function saveSnapshot() {
+  const manual = collectManualInputs();
+  const own = Object.assign({}, safeObj(RAW.own), { manual });
+  const snaps = Object.assign({}, safeObj(own.snapshots));
+  const dateKey = new Date().toISOString().slice(0,10);
+  snaps[dateKey] = { savedAt: new Date().toISOString(), report: computed };
+  own.snapshots = snaps;
+  setSync('syncing', 'Saving snapshot…');
+  const okWrite = await writeJsonFile(OWN_FILE, own);
+  RAW.own = own;
+  renderReport();
+  setSync(okWrite ? 'ok' : 'error', okWrite ? 'Snapshot saved' : 'Save failed');
+}
+
+function downloadJson() {
+  const blob = new Blob([JSON.stringify(computed, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'oxefit-weekly-report-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   TABS + BOOT
+════════════════════════════════════════════════════════════════════ */
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tabpane').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+initOneDrive();
+</script>
+</body>
+</html>
+#app{display:none;min-height:100vh;flex-direction:column;}
+header.top{display:flex;align-items:center;gap:14px;padding:12px 20px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20;flex-wrap:wrap;}
+header.top .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:15px;}
+header.top .brand small{display:block;font-weight:500;color:var(--muted);font-size:11px;}
+.spacer{flex:1;}
+#syncBadge{font-size:11.5px;padding:5px 10px;border-radius:20px;border:1px solid var(--line);color:var(--muted);}
+#syncBadge.ok{border-color:var(--ok);color:var(--ok);}
+#syncBadge.syncing{border-color:var(--warn);color:var(--warn);}
+#syncBadge.error{border-color:var(--bad);color:var(--bad);}
+#periodLabel{font-size:12.5px;color:var(--muted);padding:5px 10px;border:1px solid var(--line);border-radius:20px;}
+
+nav.tabs{display:flex;gap:4px;padding:0 20px;background:var(--panel);border-bottom:1px solid var(--line);overflow-x:auto;}
+nav.tabs button{background:none;border:none;color:var(--muted);padding:12px 14px;font-size:13px;font-weight:600;border-bottom:2px solid transparent;white-space:nowrap;}
+nav.tabs button.active{color:#fff;border-bottom-color:var(--blue);}
+nav.tabs button:hover{color:#fff;}
+
+main{padding:22px;max-width:1180px;width:100%;margin:0 auto;}
+.tabpane{display:none;}
+.tabpane.active{display:block;}
+
+.grid{display:grid;gap:14px;}
+.grid.cols-4{grid-template-columns:repeat(4,1fr);}
+.grid.cols-3{grid-template-columns:repeat(3,1fr);}
+.grid.cols-2{grid-template-columns:repeat(2,1fr);}
+@media(max-width:900px){.grid.cols-4,.grid.cols-3,.grid.cols-2{grid-template-columns:1fr 1fr;}}
+@media(max-width:600px){.grid.cols-4,.grid.cols-3,.grid.cols-2{grid-template-columns:1fr;}}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;}
+.card h3{margin:0 0 4px;font-size:12.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700;}
+.card .big{font-size:26px;font-weight:800;margin:4px 0;}
+.card .sub{font-size:12px;color:var(--muted);}
+.card .delta{font-size:12px;font-weight:700;}
+.delta.pos{color:var(--ok);}
+.delta.neg{color:var(--bad);}
+.section{margin:26px 0;}
+.section h2{font-size:16px;margin:0 0 4px;display:flex;align-items:center;gap:8px;}
+.section .letter{background:var(--blue);color:#fff;width:22px;height:22px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;}
+.section .hint{font-size:12px;color:var(--muted);margin:0 0 12px;}
+
 table{width:100%;border-collapse:collapse;font-size:13px;}
 th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);}
 th{color:var(--muted);font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.03em;}
