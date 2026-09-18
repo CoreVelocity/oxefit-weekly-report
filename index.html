@@ -197,7 +197,7 @@ footer.foot{padding:24px;text-align:center;color:var(--muted);font-size:11.5px;}
       </div>
       <div class="section">
         <h2><span class="letter">b</span> Commitments for Delivering XS1 and XP1</h2>
-        <p class="hint"><b>Committed</b> = unit forecasts reps enter on the weekly commit sheet for this month (forecastXS1 / forecastXP1), pulled from the sales tracker. <b>Closed</b> = units on deals that closed this month, read from Finance's Payouts &amp; OxeFit device mapping (each order paid to OxeFit is tagged with the devices it covers) — so this is the confirmed-order count, not a forecast.</p>
+        <p class="hint"><b>Committed</b> = unit forecasts reps enter on the weekly commit sheet for this month (forecastXS1 / forecastXP1), pulled from the sales tracker. <b>Closed</b> = actual units with status <code>CLOSED</code> in the Delivery Tracker (the delivery CRM) — one row per physical unit handed to a customer, so this is a confirmed, delivered-and-closed count, not a forecast or a deal-level estimate.</p>
         <div id="ordersCards" class="grid cols-4"></div>
         <div class="rtable-wrap"><table id="ordersTable"></table></div>
       </div>
@@ -306,9 +306,10 @@ const ONEDRIVE_CONFIG = {
 
 // Read-only sources (the other tools own these files — we never write to them)
 const SOURCES = {
-  sales  : '/OXEFIT/sales-tracker.json',
-  hr     : '/OXEFIT/corev-hr.json',
-  finance: '/OXEFIT/corev-finance-suite.json'
+  sales   : '/OXEFIT/sales-tracker.json',
+  hr      : '/OXEFIT/corev-hr.json',
+  finance : '/OXEFIT/corev-finance-suite.json',
+  delivery: '/OXEFIT/delivery-tracker.json'
 };
 // This tool's own file — manual inputs + weekly snapshot history
 const OWN_FILE = '/OXEFIT/oxefit-weekly-report.json';
@@ -329,7 +330,7 @@ const FY_START_MONTH = 0; // January (0-indexed) — Ahmed confirmed calendar-ye
 ════════════════════════════════════════════════════════════════════ */
 let msalInstance = null, msalAccount = null;
 let _sharedFileRefs = {}; // path -> {driveId,itemId}
-let RAW = { sales: null, hr: null, finance: null, own: null };
+let RAW = { sales: null, hr: null, finance: null, delivery: null, own: null };
 let HEALTH = {}; // path -> {status, note, counts}
 let computed = {}; // last computeAll() result, used by renderReport/export
 
@@ -482,15 +483,16 @@ async function writeJsonFile(filePath, obj) {
 ════════════════════════════════════════════════════════════════════ */
 async function refreshAll() {
   setSync('syncing', 'Loading…');
-  const [s, h, f, o] = await Promise.all([
-    readJsonFile(SOURCES.sales), readJsonFile(SOURCES.hr), readJsonFile(SOURCES.finance), readJsonFile(OWN_FILE)
+  const [s, h, f, dl, o] = await Promise.all([
+    readJsonFile(SOURCES.sales), readJsonFile(SOURCES.hr), readJsonFile(SOURCES.finance), readJsonFile(SOURCES.delivery), readJsonFile(OWN_FILE)
   ]);
-  HEALTH.sales = s; HEALTH.hr = h; HEALTH.finance = f; HEALTH.own = o;
+  HEALTH.sales = s; HEALTH.hr = h; HEALTH.finance = f; HEALTH.delivery = dl; HEALTH.own = o;
   RAW.sales = s.ok ? s.data : null;
   RAW.hr = h.ok ? h.data : null;
   RAW.finance = f.ok ? f.data : null;
+  RAW.delivery = dl.ok ? dl.data : null;
   RAW.own = o.ok ? o.data : { manual: {}, snapshots: {} };
-  const anyOk = s.ok || h.ok || f.ok;
+  const anyOk = s.ok || h.ok || f.ok || dl.ok;
   setSync(anyOk ? 'ok' : 'error', anyOk ? 'Synced ' + new Date().toLocaleTimeString() : 'Could not reach sources');
   computeAll();
   renderAll();
@@ -593,6 +595,31 @@ function classifyProductType(type) {
   return 'Other';
 }
 
+// Delivery Tracker (corevelocity.github.io/CoreVDelivery) — the actual
+// "delivery CRM": one row per physical unit handed to a customer, not a
+// deal-level SKU mapping. Its own file is written as the raw state object
+// (no envelope wrapper) — { deliveries:[...], stock:[...], ... }.
+function unwrapDelivery(remote) {
+  const r = safeObj(remote);
+  return { deliveries: safeArr(r.deliveries) };
+}
+// Delivery Tracker's own dashboard classifies by model prefix (see its
+// "Units: XS1 vs XP1" chart) — mirror that exactly rather than reusing
+// classifyProductType, since "XS1 PEAK+" etc. are model names, not SKUs.
+function classifyDeliveryModel(model) {
+  const m = String(model || '').toUpperCase();
+  if (m.startsWith('XP1')) return 'XP1';
+  if (m.startsWith('XS1')) return 'XS1';
+  return 'Other';
+}
+// deliveryDate is stored 'YYYY-MM-DD'. Parse the y/month-index directly from
+// the string (no `new Date()`) so this can't drift a day across timezones,
+// and format it the same 0-indexed way as monthKey()/monthsOfFY().
+function ymKeyFromISODate(s) {
+  const m = /^(\d{4})-(\d{2})/.exec(String(s || ''));
+  return m ? (m[1] + '-' + (parseInt(m[2], 10) - 1)) : null;
+}
+
 /* ════════════════════════════════════════════════════════════════════
    COMPUTE — turns RAW source data into the a-g report figures
 ════════════════════════════════════════════════════════════════════ */
@@ -603,6 +630,7 @@ function computeAll() {
   const sales = unwrapSalesEnvelope(RAW.sales);
   const hr = unwrapHR(RAW.hr);
   const fin = unwrapFinance(RAW.finance);
+  const del = unwrapDelivery(RAW.delivery);
   const own = safeObj(RAW.own);
   const manual = safeObj(own.manual);
 
@@ -648,38 +676,39 @@ function computeAll() {
   function unitCounts(rows) { return { xs1: sumField(rows, 'forecastXS1'), xp1: sumField(rows, 'forecastXP1') }; }
   const committedUnits = unitCounts(thisMonthRows);
 
-  // Closed/won units — FY-to-date lump sum, from Finance's OxeFit device
-  // mapping (Payouts & OxeFit): every closed deal in the commission book ->
-  // its oxeItems SKUs -> XS1/XP1. Deliberately NOT filtered to this month —
-  // this is the cumulative "units delivered to OxeFit" count for the FY,
-  // same scope as the FY Achieved (AED) figure above.
-  function unitsFromDeals(deals) {
-    let xs1 = 0, xp1 = 0, unmapped = 0, withoutMapping = 0;
-    deals.forEach(d => {
-      const items = fin.CTRL.oxeItems ? fin.CTRL.oxeItems[financeDealKey(d)] : null;
-      if (!items || !items.length) { withoutMapping++; return; }
-      items.forEach(it => {
-        const qty = Number(it.qty) || 0;
-        const cls = classifyProductType(it.sku);
-        if (cls === 'XS1') xs1 += qty;
-        else if (cls === 'XP1') xp1 += qty;
-        else unmapped += qty;
-      });
+  // Closed/won units — FY-to-date lump sum, from the Delivery Tracker (the
+  // actual "delivery CRM"): one row per physical unit handed to a customer,
+  // with its own model name and status. This replaced an earlier version
+  // that summed Finance's Payouts & OxeFit device-mapping instead — that
+  // approach overcounted (28 units vs. the correct 8) because it summed
+  // every mapped SKU line on every closed deal with a gross amount, with no
+  // date scoping and no way to tell a real hardware unit from a bundled
+  // line item. The Delivery Tracker's `status==='CLOSED'` rows are the
+  // ground truth: an actual unit, actually delivered and closed out.
+  function unitsFromDeliveries(rows) {
+    let xs1 = 0, xp1 = 0, other = 0;
+    rows.forEach(r => {
+      const cls = classifyDeliveryModel(r.model);
+      if (cls === 'XS1') xs1++;
+      else if (cls === 'XP1') xp1++;
+      else other++;
     });
-    return { xs1, xp1, unmapped, dealsCount: deals.length, dealsWithoutMapping: withoutMapping };
+    return { xs1, xp1, other, count: rows.length };
   }
-  const allClosedDeals = financeClosedDeals(fin);
-  const thisMonthLabel = normMonthLabel(monthLabelFor(now));
-  const closedDealsThisMonth = allClosedDeals.filter(d => normMonthLabel(d.month) === thisMonthLabel);
-  const closedFY = unitsFromDeals(allClosedDeals);           // lump sum — the headline number
-  const closedThisMonth = unitsFromDeals(closedDealsThisMonth); // for context in the detail table
+  const fyMonthSet = new Set(fyMonths);
+  const closedDeliveries = del.deliveries.filter(r => r && r.status === 'CLOSED');
+  const closedDeliveriesFY = closedDeliveries.filter(r => fyMonthSet.has(ymKeyFromISODate(r.deliveryDate)));
+  const closedDeliveriesThisMonth = closedDeliveries.filter(r => ymKeyFromISODate(r.deliveryDate) === thisMonthKey);
+  const closedFY = unitsFromDeliveries(closedDeliveriesFY);           // lump sum — the headline number
+  const closedThisMonth = unitsFromDeliveries(closedDeliveriesThisMonth); // for context in the detail table
+  const closedUndated = closedDeliveries.filter(r => !ymKeyFromISODate(r.deliveryDate)).length;
 
   const ordersB = {
     committed: committedUnits,
-    closed: { xs1: closedFY.xs1, xp1: closedFY.xp1, unmapped: closedFY.unmapped },
+    closed: { xs1: closedFY.xs1, xp1: closedFY.xp1, unmapped: closedFY.other },
     closedThisMonth: { xs1: closedThisMonth.xs1, xp1: closedThisMonth.xp1 },
-    closedDealsCount: closedFY.dealsCount,
-    closedDealsWithoutMapping: closedFY.dealsWithoutMapping
+    closedDealsCount: closedDeliveries.length,
+    closedDealsWithoutMapping: closedUndated
   };
 
   // ---- (c) finance: cost vs income ----
@@ -737,7 +766,7 @@ function computeAll() {
     };
   });
 
-  computed = { now, thisMonthKey, fyMonths, salesA, ordersB, financeC, relocation, targetsE, leadsF, teamG, sales, hr, fin };
+  computed = { now, thisMonthKey, fyMonths, salesA, ordersB, financeC, relocation, targetsE, leadsF, teamG, sales, hr, fin, del };
   return computed;
 }
 
@@ -765,17 +794,17 @@ function renderSales() {
   document.getElementById('ordersCards').innerHTML = [
     cardHtml('Committed — XS1', ob.committed.xs1, fmtMonth(c.now) + ' · commit sheet', 'AUTO'),
     cardHtml('Committed — XP1', ob.committed.xp1, fmtMonth(c.now) + ' · commit sheet', 'AUTO'),
-    cardHtml('Closed FY — XS1', ob.closed.xs1, 'Jan – ' + fmtMonth(c.now) + ' · Payouts & OxeFit', 'AUTO'),
-    cardHtml('Closed FY — XP1', ob.closed.xp1, 'Jan – ' + fmtMonth(c.now) + ' · Payouts & OxeFit', 'AUTO')
+    cardHtml('Closed FY — XS1', ob.closed.xs1, 'Jan – ' + fmtMonth(c.now) + ' · Delivery Tracker', 'AUTO'),
+    cardHtml('Closed FY — XP1', ob.closed.xp1, 'Jan – ' + fmtMonth(c.now) + ' · Delivery Tracker', 'AUTO')
   ].join('');
 
   document.getElementById('ordersTable').innerHTML = `
     <tr><th>Basis</th><th>XS1 units</th><th>XP1 units</th><th>Total</th></tr>
     <tr><td>Committed (weekly commit sheet, this month)</td><td>${ob.committed.xs1}</td><td>${ob.committed.xp1}</td><td>${ob.committed.xs1+ob.committed.xp1}</td></tr>
-    <tr><td>Closed / delivered — this month (Payouts &amp; OxeFit)</td><td>${ob.closedThisMonth.xs1}</td><td>${ob.closedThisMonth.xp1}</td><td>${ob.closedThisMonth.xs1+ob.closedThisMonth.xp1}</td></tr>
-    <tr><td><b>Closed / delivered — FY to date (Payouts &amp; OxeFit, cumulative)</b></td><td><b>${ob.closed.xs1}</b></td><td><b>${ob.closed.xp1}</b></td><td><b>${ob.closed.xs1+ob.closed.xp1}</b></td></tr>`
-    + (ob.closedDealsWithoutMapping > 0 ? `<tr><td colspan="4" style="color:var(--warn);font-size:12px;">${ob.closedDealsWithoutMapping} of ${ob.closedDealsCount} closed deal(s) this FY have no device mapping yet in Finance's Payouts &amp; OxeFit view — their units aren't counted above.</td></tr>` : '')
-    + (ob.closed.unmapped > 0 ? `<tr><td colspan="4" style="color:var(--warn);font-size:12px;">${ob.closed.unmapped} closed unit(s) had a SKU I couldn't classify as XS1 or XP1 — check Data Health.</td></tr>` : '');
+    <tr><td>Closed — this month (Delivery Tracker)</td><td>${ob.closedThisMonth.xs1}</td><td>${ob.closedThisMonth.xp1}</td><td>${ob.closedThisMonth.xs1+ob.closedThisMonth.xp1}</td></tr>
+    <tr><td><b>Closed — FY to date (Delivery Tracker, cumulative)</b></td><td><b>${ob.closed.xs1}</b></td><td><b>${ob.closed.xp1}</b></td><td><b>${ob.closed.xs1+ob.closed.xp1}</b></td></tr>`
+    + (ob.closedDealsWithoutMapping > 0 ? `<tr><td colspan="4" style="color:var(--warn);font-size:12px;">${ob.closedDealsWithoutMapping} closed delivery record(s) have no delivery date, so they can't be placed in a month and aren't counted above.</td></tr>` : '')
+    + (ob.closed.unmapped > 0 ? `<tr><td colspan="4" style="color:var(--warn);font-size:12px;">${ob.closed.unmapped} closed unit(s) had a model name I couldn't classify as XS1 or XP1 — check Data Health.</td></tr>` : '');
 }
 
 function renderFinance() {
@@ -854,6 +883,7 @@ function renderHealth() {
     ['sales', SOURCES.sales, computed.sales.data ? Object.keys(computed.sales.data).length + ' month buckets, ' + computed.sales.followups.length + ' leads' : ''],
     ['hr', SOURCES.hr, computed.hr.employees.length + ' employees'],
     ['finance', SOURCES.finance, Object.keys(computed.fin.v).length + ' saved fields'],
+    ['delivery', SOURCES.delivery, computed.del.deliveries.length + ' delivery record(s)'],
     ['own', OWN_FILE, 'manual inputs + snapshots']
   ];
   document.getElementById('healthCards').innerHTML = rows.map(([key, path, note]) => {
@@ -864,7 +894,7 @@ function renderHealth() {
   const ob = computed.ordersB;
   document.getElementById('healthDetail').innerHTML = `<p class="hint">Raw finance fields read (performance.v): rent override <code>pf_cenb_0</code> = ${computed.fin.v.pf_cenb_0 ?? '(using default '+CENTRAL_DEFAULTS.rentWarehouse+')'} · marketing override <code>pf_cenb_8</code> = ${computed.fin.v.pf_cenb_8 ?? '(using default '+CENTRAL_DEFAULTS.marketing+')'}.</p>
   <p class="hint">Closed Won here is computed from the sales tracker's OneDrive file (max per rep, per month — matches its exec dashboard's fallback logic). The tracker's dashboard can also override this with a HubSpot-refreshed cache that lives only in your browser's local storage, never in the OneDrive file, so if you've recently clicked "Refresh from HubSpot" there this figure may still be a few deals behind. Ask if you want this pulled live from HubSpot instead for an exact match.</p>
-  <p class="hint">Closed XS1/XP1 units (FY lump sum): read ${computed.fin.REPS.length} rep(s) from Finance's commission data, ${ob.closedDealsCount} closed deal(s) total, ${ob.closedDealsWithoutMapping} without a device mapping yet in Payouts &amp; OxeFit, ${ob.closed.unmapped} unit(s) with an unrecognized SKU. Not date-filtered — every closed deal with a device mapping counts, same as the FY Achieved (AED) figure. Device mapping read from <code>reminders.CTRL.oxeItems</code> (${Object.keys(computed.fin.CTRL.oxeItems||{}).length} deals mapped in total).</p>`;
+  <p class="hint">Closed XS1/XP1 units (FY lump sum): read from the <b>Delivery Tracker</b> (the delivery CRM) — ${computed.del.deliveries.length} delivery record(s) total, ${ob.closedDealsCount} with status <code>CLOSED</code>, of which ${ob.closedDealsWithoutMapping} have no delivery date and can't be placed in a month, and ${ob.closed.unmapped} have a model name that isn't recognized as XS1 or XP1. FY-to-date = closed records whose delivery date falls in Jan–${fmtMonth(computed.now)}, matching the scope of the FY Achieved (AED) figure above. This replaced an earlier version sourced from Finance's Payouts &amp; OxeFit device mapping, which was overcounting.</p>`;
 }
 
 function renderReport() {
@@ -901,8 +931,8 @@ function renderReport() {
       <div class="grid cols-4">
         ${cardHtml('Committed — XS1', c.ordersB.committed.xs1, 'This month · weekly commit sheet')}
         ${cardHtml('Committed — XP1', c.ordersB.committed.xp1, 'This month · weekly commit sheet')}
-        ${cardHtml('Closed FY — XS1', c.ordersB.closed.xs1, 'Jan – ' + fmtMonth(c.now) + ' · Payouts & OxeFit')}
-        ${cardHtml('Closed FY — XP1', c.ordersB.closed.xp1, 'Jan – ' + fmtMonth(c.now) + ' · Payouts & OxeFit')}
+        ${cardHtml('Closed FY — XS1', c.ordersB.closed.xs1, 'Jan – ' + fmtMonth(c.now) + ' · Delivery Tracker')}
+        ${cardHtml('Closed FY — XP1', c.ordersB.closed.xp1, 'Jan – ' + fmtMonth(c.now) + ' · Delivery Tracker')}
       </div>
     </div>
 
