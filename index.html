@@ -200,6 +200,10 @@ footer.foot{padding:24px;text-align:center;color:var(--muted);font-size:11.5px;}
         <p class="hint"><b>Committed</b> = unit forecasts reps enter on the weekly commit sheet for this month (forecastXS1 / forecastXP1), pulled from the sales tracker. <b>Closed</b> = actual units in the Delivery Tracker (the delivery CRM) that are past the OPEN stage — i.e. have left CoreV for the customer, whatever stage of onboarding they're at (Delivered - pending session, Delivered - installation pending, Postponed, or Closed) — one row per physical unit, so this is a confirmed count, not a forecast or a deal-level estimate.</p>
         <div id="ordersCards" class="grid cols-4"></div>
         <div class="rtable-wrap"><table id="ordersTable"></table></div>
+        <details style="margin-top:14px;">
+          <summary style="cursor:pointer;color:var(--blue);font-size:13px;">Show every Delivery Tracker record behind this count (for auditing against the live tracker)</summary>
+          <div class="rtable-wrap" style="margin-top:8px;"><table id="ordersAuditTable"></table></div>
+        </details>
       </div>
     </div>
 
@@ -815,7 +819,46 @@ function renderSales() {
     <tr><td><b>Closed — FY to date (Delivery Tracker, cumulative)</b></td><td><b>${ob.closed.xs1}</b></td><td><b>${ob.closed.xp1}</b></td><td><b>${ob.closed.xs1+ob.closed.xp1}</b></td></tr>`
     + (ob.closedDealsWithoutMapping > 0 ? `<tr><td colspan="4" style="color:var(--warn);font-size:12px;">${ob.closedDealsWithoutMapping} closed delivery record(s) have no delivery date, so they can't be placed in a month and aren't counted above.</td></tr>` : '')
     + (ob.closed.unmapped > 0 ? `<tr><td colspan="4" style="color:var(--warn);font-size:12px;">${ob.closed.unmapped} closed unit(s) had a model name I couldn't classify as XS1 or XP1 — check Data Health.</td></tr>` : '');
+
+  renderOrdersAudit();
 }
+
+// Full per-record listing behind the Units Closed count — every row in the
+// Delivery Tracker with what it classified as and, if it's NOT in the FY
+// closed total, exactly why not. This exists so Ahmed can line it up
+// against the tracker itself and point at the exact record(s) that are
+// off, instead of us going back and forth guessing at filter rules.
+function renderOrdersAudit() {
+  const el = document.getElementById('ordersAuditTable');
+  if (!el) return;
+  const rows = safeArr(computed.del.deliveries);
+  const fySet = new Set(computed.fyMonths);
+  const sorted = rows.slice().sort((a, b) => String(b.deliveryDate || '').localeCompare(String(a.deliveryDate || '')));
+  const trs = sorted.map(r => {
+    const cls = classifyDeliveryModel(r.model);
+    const closedStage = isClosedDelivery(r.status);
+    const mk = ymKeyFromISODate(r.deliveryDate);
+    let reason = '';
+    let included = false;
+    if (!closedStage) reason = 'excluded — status is OPEN';
+    else if (cls === 'Other') reason = 'excluded — model not recognized as XS1/XP1';
+    else if (!mk) reason = 'excluded — no delivery date';
+    else if (!fySet.has(mk)) reason = 'excluded — delivery date outside Jan–' + fmtMonth(computed.now);
+    else { reason = 'counted'; included = true; }
+    return `<tr>
+      <td>${esc(r.id || '')}</td>
+      <td>${esc(r.receiver || '')}</td>
+      <td>${esc(r.model || '')}</td>
+      <td>${esc(cls)}</td>
+      <td>${esc(r.status || '')}</td>
+      <td>${esc(r.deliveryDate || '')}</td>
+      <td style="color:${included ? 'var(--ok)' : 'var(--muted)'};font-weight:${included ? '700' : '400'}">${esc(reason)}</td>
+    </tr>`;
+  }).join('');
+  el.innerHTML = `<tr><th>ID</th><th>Receiver</th><th>Model</th><th>Classified</th><th>Status</th><th>Delivery date</th><th>In FY closed count?</th></tr>` +
+    (trs || `<tr><td colspan="7">No delivery records loaded — check Data Health.</td></tr>`);
+}
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 function renderFinance() {
   const c = computed.financeC;
