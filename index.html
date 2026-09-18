@@ -197,7 +197,7 @@ footer.foot{padding:24px;text-align:center;color:var(--muted);font-size:11.5px;}
       </div>
       <div class="section">
         <h2><span class="letter">b</span> Commitments for Delivering XS1 and XP1</h2>
-        <p class="hint"><b>Committed</b> = unit forecasts reps enter on the weekly commit sheet for this month (forecastXS1 / forecastXP1), pulled from the sales tracker. <b>Closed</b> = actual units with status <code>CLOSED</code> in the Delivery Tracker (the delivery CRM) — one row per physical unit handed to a customer, so this is a confirmed, delivered-and-closed count, not a forecast or a deal-level estimate.</p>
+        <p class="hint"><b>Committed</b> = unit forecasts reps enter on the weekly commit sheet for this month (forecastXS1 / forecastXP1), pulled from the sales tracker. <b>Closed</b> = actual units in the Delivery Tracker (the delivery CRM) that are past the OPEN stage — i.e. have left CoreV for the customer, whatever stage of onboarding they're at (Delivered - pending session, Delivered - installation pending, Postponed, or Closed) — one row per physical unit, so this is a confirmed count, not a forecast or a deal-level estimate.</p>
         <div id="ordersCards" class="grid cols-4"></div>
         <div class="rtable-wrap"><table id="ordersTable"></table></div>
       </div>
@@ -607,10 +607,19 @@ function unwrapDelivery(remote) {
 // "Units: XS1 vs XP1" chart) — mirror that exactly rather than reusing
 // classifyProductType, since "XS1 PEAK+" etc. are model names, not SKUs.
 function classifyDeliveryModel(model) {
-  const m = String(model || '').toUpperCase();
+  const m = String(model || '').trim().toUpperCase();
   if (m.startsWith('XP1')) return 'XP1';
   if (m.startsWith('XS1')) return 'XS1';
   return 'Other';
+}
+// A unit counts as "closed" once it's out of the OPEN stage — i.e. it has
+// actually left CoreV for the customer, whatever stage of onboarding it's
+// at (DELIVERED - PENDING SESSION / DELIVERED - INSTALLATION PENDING /
+// POSTPONED / CLOSED). Only OPEN (order placed, not yet delivered) is
+// excluded. Ahmed confirmed this scope after checking the Delivery Tracker
+// directly — a stricter status==='CLOSED' filter undercounted.
+function isClosedDelivery(status) {
+  return String(status || '').trim().toUpperCase() !== 'OPEN';
 }
 // deliveryDate is stored 'YYYY-MM-DD'. Parse the y/month-index directly from
 // the string (no `new Date()`) so this can't drift a day across timezones,
@@ -680,11 +689,12 @@ function computeAll() {
   // actual "delivery CRM"): one row per physical unit handed to a customer,
   // with its own model name and status. This replaced an earlier version
   // that summed Finance's Payouts & OxeFit device-mapping instead — that
-  // approach overcounted (28 units vs. the correct 8) because it summed
-  // every mapped SKU line on every closed deal with a gross amount, with no
-  // date scoping and no way to tell a real hardware unit from a bundled
-  // line item. The Delivery Tracker's `status==='CLOSED'` rows are the
-  // ground truth: an actual unit, actually delivered and closed out.
+  // approach overcounted because it summed every mapped SKU line on every
+  // closed deal with a gross amount, with no date scoping and no way to
+  // tell a real hardware unit from a bundled line item. The Delivery
+  // Tracker's rows are the ground truth: one row per actual unit. A unit
+  // counts here once it's past OPEN (see isClosedDelivery) — confirmed with
+  // Ahmed against the tracker's own numbers.
   function unitsFromDeliveries(rows) {
     let xs1 = 0, xp1 = 0, other = 0;
     rows.forEach(r => {
@@ -696,7 +706,7 @@ function computeAll() {
     return { xs1, xp1, other, count: rows.length };
   }
   const fyMonthSet = new Set(fyMonths);
-  const closedDeliveries = del.deliveries.filter(r => r && r.status === 'CLOSED');
+  const closedDeliveries = del.deliveries.filter(r => r && isClosedDelivery(r.status));
   const closedDeliveriesFY = closedDeliveries.filter(r => fyMonthSet.has(ymKeyFromISODate(r.deliveryDate)));
   const closedDeliveriesThisMonth = closedDeliveries.filter(r => ymKeyFromISODate(r.deliveryDate) === thisMonthKey);
   const closedFY = unitsFromDeliveries(closedDeliveriesFY);           // lump sum — the headline number
@@ -894,7 +904,7 @@ function renderHealth() {
   const ob = computed.ordersB;
   document.getElementById('healthDetail').innerHTML = `<p class="hint">Raw finance fields read (performance.v): rent override <code>pf_cenb_0</code> = ${computed.fin.v.pf_cenb_0 ?? '(using default '+CENTRAL_DEFAULTS.rentWarehouse+')'} · marketing override <code>pf_cenb_8</code> = ${computed.fin.v.pf_cenb_8 ?? '(using default '+CENTRAL_DEFAULTS.marketing+')'}.</p>
   <p class="hint">Closed Won here is computed from the sales tracker's OneDrive file (max per rep, per month — matches its exec dashboard's fallback logic). The tracker's dashboard can also override this with a HubSpot-refreshed cache that lives only in your browser's local storage, never in the OneDrive file, so if you've recently clicked "Refresh from HubSpot" there this figure may still be a few deals behind. Ask if you want this pulled live from HubSpot instead for an exact match.</p>
-  <p class="hint">Closed XS1/XP1 units (FY lump sum): read from the <b>Delivery Tracker</b> (the delivery CRM) — ${computed.del.deliveries.length} delivery record(s) total, ${ob.closedDealsCount} with status <code>CLOSED</code>, of which ${ob.closedDealsWithoutMapping} have no delivery date and can't be placed in a month, and ${ob.closed.unmapped} have a model name that isn't recognized as XS1 or XP1. FY-to-date = closed records whose delivery date falls in Jan–${fmtMonth(computed.now)}, matching the scope of the FY Achieved (AED) figure above. This replaced an earlier version sourced from Finance's Payouts &amp; OxeFit device mapping, which was overcounting.</p>`;
+  <p class="hint">Closed XS1/XP1 units (FY lump sum): read from the <b>Delivery Tracker</b> (the delivery CRM) — ${computed.del.deliveries.length} delivery record(s) total, ${ob.closedDealsCount} past the OPEN stage (Delivered - pending session / Delivered - installation pending / Postponed / Closed), of which ${ob.closedDealsWithoutMapping} have no delivery date and can't be placed in a month, and ${ob.closed.unmapped} have a model name that isn't recognized as XS1 or XP1. FY-to-date = those records whose delivery date falls in Jan–${fmtMonth(computed.now)}, matching the scope of the FY Achieved (AED) figure above.</p>`;
 }
 
 function renderReport() {
