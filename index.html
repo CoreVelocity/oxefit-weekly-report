@@ -225,12 +225,12 @@ footer.foot{padding:24px;text-align:center;color:var(--muted);font-size:11.5px;}
     <div class="tabpane" id="tab-finance">
       <div class="section">
         <h2><span class="letter">c</span> Finance — cost vs. income (OxeFit)</h2>
-        <p class="hint">Salaries pull from HR; showroom/warehouse rent and marketing budget pull from Finance's central cost pool. "Income to OxeFit" is entered manually until it's wired to the Finance payables ledger.</p>
+        <p class="hint">Salaries pull from HR; showroom/warehouse rent and marketing budget pull from Finance's central cost pool. <b>Income to OxeFit</b> is now AUTO too — it's the same "Paid to OxeFit" figure from Finance's Payouts &amp; OxeFit tab (every closed deal's mapped device cost × the milestone schedule × what's actually been collected from the customer so far), so it should match Finance exactly without retyping it here each week. The field below is only a manual override for a week Finance hasn't synced yet — leave it blank to use the automatic figure.</p>
         <div id="financeCards" class="grid cols-4"></div>
         <div class="card" style="margin-top:14px;">
-          <h3>Manual inputs <span class="manual-tag">MANUAL</span></h3>
+          <h3>Manual override <span class="manual-tag">MANUAL</span></h3>
           <div class="field-row">
-            <div class="field"><label>Income to OxeFit this month (AED)</label><input type="number" id="mIncomeOxefit" step="1"></div>
+            <div class="field"><label>Income to OxeFit override (AED) — leave blank to use Finance's auto figure</label><input type="number" id="mIncomeOxefit" step="1"></div>
             <div class="field"><label>Notes on this week's finance figures</label><input type="text" id="mFinanceNote" style="min-width:280px;"></div>
             <button class="btn primary small" onclick="saveManualInputs()">Save</button>
           </div>
@@ -362,8 +362,9 @@ function isAuthorizedUser(account) {
    (shown on the sign-in screen, the access-denied screen, and the app
    header — see applyVersionTags()).
 ════════════════════════════════════════════════════════════════════ */
-const APP_VERSION = '1.6.0';
+const APP_VERSION = '1.7.0';
 const CHANGELOG = [
+  { v: '1.7.0', date: '2026-09-19', notes: 'Income to OxeFit is now AUTO — mirrors Finance’s Payouts & OxeFit "Paid to OxeFit" figure exactly (device-mapped cost x milestone schedule x collected %), with a manual override still available for weeks Finance hasn’t synced' },
   { v: '1.6.0', date: '2026-09-19', notes: 'Restricted sign-in to Ahmed, Kamal and Sami; added version number display' },
   { v: '1.5.0', date: '2026-09-19', notes: 'Sign-in switched to redirect-only (no popup) — fixes browser popup blockers breaking Microsoft sign-in' },
   { v: '1.4.0', date: '2026-09-18', notes: '"Closed" units broadened to any Delivery Tracker status except OPEN; added a per-record audit table under Orders' },
@@ -650,10 +651,12 @@ function unwrapFinance(remote) {
   const perf = safeObj(r.performance);
   const commission = safeObj(r.commission);
   const reminders = safeObj(r.reminders);
+  const costing = safeObj(r.costing);
   return {
     v: safeObj(perf.v), sal: safeObj(perf.sal), map: safeObj(perf.map), reps: safeArr(perf.reps),
-    REPS: safeArr(commission.REPS),               // [{name, target, deals:[{cust, gross, month, future, hsId, ...}]}]
-    CTRL: safeObj(reminders.CTRL),                 // {oxeItems:{dealKey:[{sku,qty}]}, oxePaid:{...}, ...}
+    REPS: safeArr(commission.REPS),               // [{name, target, deals:[{cust, gross, month, future, hsId, coll, plan, ...}]}]
+    CTRL: safeObj(reminders.CTRL),                 // {oxeItems:{dealKey:[{sku,qty}]}, oxePaid:{...}, def:[...], perDeal:{...}, oxeOv:{...}}
+    costing: costing,                              // {G:{exch,...}, DATA:[{group,rows:[{sku,cost,...}]}], SVC:{rows:[...]}} — product/service unit costs
     raw: r
   };
 }
@@ -664,13 +667,93 @@ function financeDealKey(d) {
   return d.hsId ? ('hs:' + d.hsId) : ('m:' + (d.rep || '') + '|' + (d.customer || '') + '|' + (d.month || ''));
 }
 // Flattens Finance's REPS[].deals[] into the same {rep, customer, gross, month, future, hsId}
-// shape the Finance tool itself builds in publishStore(), so dealKey() lines up.
+// shape the Finance tool itself builds in publishStore(), so dealKey() lines up. Also carries
+// coll/plan — needed to mirror effColl() for the Payouts & OxeFit "paid" calculation below.
 function financeClosedDeals(fin) {
   const out = [];
   fin.REPS.forEach(r => safeArr(r.deals).forEach(d => {
-    out.push({ rep: r.name, customer: d.cust, gross: Number(d.gross) || 0, month: d.month || '', future: !!d.future, hsId: d.hsId || null });
+    out.push({ rep: r.name, customer: d.cust, gross: Number(d.gross) || 0, month: d.month || '', future: !!d.future, hsId: d.hsId || null, coll: Number(d.coll) || 0, plan: safeArr(d.plan) });
   }));
   return out.filter(d => d.gross); // Finance itself only treats deals with a gross amount as real/closed
+}
+
+/* ── Payouts & OxeFit — "Paid to OxeFit" (income) ──────────────────────
+   Mirrors Finance's own renderOxe() KPI math exactly, from the same raw
+   fields Finance stores, so this total always matches what's on Finance's
+   Payouts & OxeFit tab without Ahmed re-typing it every week. */
+
+// Mirrors Finance's effColl(d): the fraction of a deal's value collected
+// from the customer so far. A "future" deal (paid on a dated plan) sums
+// the plan's percentages up to today; everything else uses the flat
+// collected fraction (d.coll) tracked on the Commission tab.
+function effColl(d) {
+  if (d.future && Array.isArray(d.plan) && d.plan.length) {
+    const todayISO = new Date().toISOString().slice(0, 10);
+    let s = 0;
+    d.plan.forEach(p => { if (p && p.date && p.date <= todayISO) s += (Number(p.pct) || 0); });
+    return Math.min(1, s);
+  }
+  return Number(d.coll) || 0;
+}
+// Mirrors Finance's oxeUnitCost(sku): the per-unit cost of a hardware or
+// service SKU, read from Finance's own Costing catalog — DATA (hardware)
+// costs are in USD and need costing.G.exch to convert to AED, SVC
+// (services) costs are already stored in AED.
+function buildOxeUnitCostMap(fin) {
+  const map = {};
+  const costing = safeObj(fin.costing);
+  const exch = Number(safeObj(costing.G).exch) || 1;
+  safeArr(costing.DATA).forEach(g => safeArr(g.rows).forEach(r => { if (r && r.sku) map[r.sku] = (Number(r.cost) || 0) * exch; }));
+  safeArr(safeObj(costing.SVC).rows).forEach(r => { if (r && r.sku) map[r.sku] = Number(r.cost) || 0; });
+  return map;
+}
+// Mirrors Finance's oxeCostOf(d): total amount CoreV owes OxeFit for one
+// deal — from its mapped devices (Payouts & OxeFit's device picker) if
+// set, else a manual per-deal cost override, else 0 until someone maps it.
+function oxeCostOfDeal(d, fin, unitCostMap) {
+  const key = financeDealKey(d);
+  const items = fin.CTRL.oxeItems ? fin.CTRL.oxeItems[key] : null;
+  if (items && items.length) return items.reduce((a, it) => a + (unitCostMap[it.sku] || 0) * (Number(it.qty) || 0), 0);
+  const ov = fin.CTRL.oxeOv ? fin.CTRL.oxeOv[key] : undefined;
+  return (ov != null) ? (Number(ov) || 0) : 0;
+}
+// Mirrors Finance's dealMs(d): the OxeFit payment milestone schedule for a
+// deal — a per-deal custom schedule if Finance has one, else the shared
+// default (Finance's own default is 100% in one milestone).
+function dealMilestones(d, fin) {
+  const key = financeDealKey(d);
+  const custom = fin.CTRL.perDeal ? fin.CTRL.perDeal[key] : null;
+  if (Array.isArray(custom) && custom.length) return custom;
+  const def = fin.CTRL.def;
+  return (Array.isArray(def) && def.length) ? def : [{ pct: 1.0 }];
+}
+// The KPI itself — mirrors renderOxe()'s paidSum/totalCost/outstanding
+// across every closed deal with a mapped or overridden OxeFit cost. A
+// milestone counts as paid if Finance has an explicit admin override
+// (CTRL.oxePaid[dealKey]) for the whole deal, else "back-to-back": paid
+// once the customer's own collected % reaches that milestone's cumulative %.
+function computeOxefitIncome(fin) {
+  const unitCostMap = buildOxeUnitCostMap(fin);
+  const deals = financeClosedDeals(fin);
+  let paid = 0, totalCost = 0, outstanding = 0, dealsWithCost = 0;
+  deals.forEach(d => {
+    const key = financeDealKey(d);
+    const cost = oxeCostOfDeal(d, fin, unitCostMap);
+    if (!cost) return;
+    dealsWithCost++;
+    totalCost += cost;
+    const dealOv = fin.CTRL.oxePaid ? fin.CTRL.oxePaid[key] : undefined;
+    const collected = effColl(d);
+    let cum = 0;
+    dealMilestones(d, fin).forEach(m => {
+      const pct = Number(m.pct) || 0;
+      cum += pct;
+      const amount = cost * pct;
+      const isPaid = (dealOv === true) ? true : (dealOv === false ? false : (collected >= cum - 1e-9));
+      if (isPaid) paid += amount; else outstanding += amount;
+    });
+  });
+  return { paid, totalCost, outstanding, dealsWithCost, dealsCount: deals.length };
 }
 const MON3 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 // Finance deal.month is a free-text label like "Sep/26" — normalize both sides
@@ -820,8 +903,15 @@ function computeAll() {
   const rent = Number(fin.v.pf_cenb_0) || CENTRAL_DEFAULTS.rentWarehouse;
   const marketing = Number(fin.v.pf_cenb_8) || CENTRAL_DEFAULTS.marketing;
   const totalCost = salaries + rent + marketing;
-  const incomeOxefit = Number(manual.incomeOxefit) || 0;
-  const financeC = { salaries, rent, marketing, totalCost, incomeOxefit, gap: incomeOxefit - totalCost };
+  // Income to OxeFit — AUTO from day one: Finance's own Payouts & OxeFit
+  // tab already tracks exactly this ("Paid to OxeFit"), so it's read
+  // straight from there (see computeOxefitIncome) instead of typed in by
+  // hand. A manual override stays available (e.g. Finance hasn't synced
+  // yet) — it's only used if actually filled in.
+  const oxefitIncome = computeOxefitIncome(fin);
+  const incomeOxefitManual = (manual.incomeOxefit !== undefined && manual.incomeOxefit !== null && manual.incomeOxefit !== '') ? Number(manual.incomeOxefit) : null;
+  const incomeOxefit = incomeOxefitManual != null ? incomeOxefitManual : oxefitIncome.paid;
+  const financeC = { salaries, rent, marketing, totalCost, incomeOxefit, incomeOxefitAuto: oxefitIncome.paid, incomeOxefitManual, oxefitIncome, gap: incomeOxefit - totalCost };
 
   // ---- (d) showroom/warehouse relocation — fully manual ----
   const relocation = manual.relocation || {};
@@ -951,15 +1041,23 @@ function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'
 
 function renderFinance() {
   const c = computed.financeC;
+  const incomeIsOverridden = c.incomeOxefitManual != null;
   document.getElementById('financeCards').innerHTML = [
     cardHtml('Salaries', fmtAED(c.salaries), 'Active employees · HR tool', 'AUTO'),
     cardHtml('Showroom + warehouse rent', fmtAED(c.rent), 'Finance central pool', 'AUTO'),
     cardHtml('Marketing budget', fmtAED(c.marketing), 'Finance central pool', 'AUTO'),
-    cardHtml('Total cost', fmtAED(c.totalCost), 'Salaries + rent + marketing', 'AUTO')
-  ].join('') + cardHtml('Income to OxeFit', fmtAED(c.incomeOxefit), 'Entered manually below', 'MANUAL')
+    cardHtml('Total cost', fmtAED(c.totalCost), 'Salaries + rent + marketing', 'AUTO'),
+    cardHtml('Income to OxeFit', fmtAED(c.incomeOxefit),
+      incomeIsOverridden ? 'Manual override — auto figure is ' + fmtAED(c.incomeOxefitAuto) : 'Paid to OxeFit · Finance · ' + c.oxefitIncome.dealsWithCost + ' deal(s)',
+      incomeIsOverridden ? 'MANUAL' : 'AUTO')
+  ].join('')
     + `<div class="card"><h3>Gap (Income − Cost)</h3><div class="big" style="color:${c.gap>=0?'var(--ok)':'var(--bad)'}">${c.gap>=0?'+':''}${fmtAED(c.gap)}</div><div class="sub">Positive = OxeFit income covers cost</div></div>`;
 
-  document.getElementById('mIncomeOxefit').value = c.incomeOxefit || '';
+  // The override field is only ever populated from a saved manual value —
+  // never from the auto figure — so an empty box unambiguously means
+  // "use Finance's automatic number", and re-saving blank clears the override.
+  document.getElementById('mIncomeOxefit').value = (c.incomeOxefitManual != null) ? c.incomeOxefitManual : '';
+  document.getElementById('mIncomeOxefit').placeholder = 'auto: ' + Math.round(c.incomeOxefitAuto).toLocaleString('en-US');
   const own = safeObj(RAW.own); const manual = safeObj(own.manual);
   document.getElementById('mFinanceNote').value = manual.financeNote || '';
 }
@@ -1036,7 +1134,8 @@ function renderHealth() {
   const ob = computed.ordersB;
   document.getElementById('healthDetail').innerHTML = `<p class="hint">Raw finance fields read (performance.v): rent override <code>pf_cenb_0</code> = ${computed.fin.v.pf_cenb_0 ?? '(using default '+CENTRAL_DEFAULTS.rentWarehouse+')'} · marketing override <code>pf_cenb_8</code> = ${computed.fin.v.pf_cenb_8 ?? '(using default '+CENTRAL_DEFAULTS.marketing+')'}.</p>
   <p class="hint">Closed Won here is computed from the sales tracker's OneDrive file (max per rep, per month — matches its exec dashboard's fallback logic). The tracker's dashboard can also override this with a HubSpot-refreshed cache that lives only in your browser's local storage, never in the OneDrive file, so if you've recently clicked "Refresh from HubSpot" there this figure may still be a few deals behind. Ask if you want this pulled live from HubSpot instead for an exact match.</p>
-  <p class="hint">Closed XS1/XP1 units (FY lump sum): read from the <b>Delivery Tracker</b> (the delivery CRM) — ${computed.del.deliveries.length} delivery record(s) total, ${ob.closedDealsCount} past the OPEN stage (Delivered - pending session / Delivered - installation pending / Postponed / Closed), of which ${ob.closedDealsWithoutMapping} have no delivery date and can't be placed in a month, and ${ob.closed.unmapped} have a model name that isn't recognized as XS1 or XP1. FY-to-date = those records whose delivery date falls in Jan–${fmtMonth(computed.now)}, matching the scope of the FY Achieved (AED) figure above.</p>`;
+  <p class="hint">Closed XS1/XP1 units (FY lump sum): read from the <b>Delivery Tracker</b> (the delivery CRM) — ${computed.del.deliveries.length} delivery record(s) total, ${ob.closedDealsCount} past the OPEN stage (Delivered - pending session / Delivered - installation pending / Postponed / Closed), of which ${ob.closedDealsWithoutMapping} have no delivery date and can't be placed in a month, and ${ob.closed.unmapped} have a model name that isn't recognized as XS1 or XP1. FY-to-date = those records whose delivery date falls in Jan–${fmtMonth(computed.now)}, matching the scope of the FY Achieved (AED) figure above.</p>
+  <p class="hint">Income to OxeFit (auto): mirrors Finance's Payouts &amp; OxeFit "Paid to OxeFit" KPI exactly — ${computed.financeC.oxefitIncome.dealsWithCost} of ${computed.financeC.oxefitIncome.dealsCount} closed deal(s) have an OxeFit cost (device mapping or manual override), totalling ${fmtAED(computed.financeC.oxefitIncome.totalCost)} owed to OxeFit, of which ${fmtAED(computed.financeC.oxefitIncome.paid)} is paid (settled) and ${fmtAED(computed.financeC.oxefitIncome.outstanding)} is still outstanding. Unit costs come from Finance's Costing catalog (<code>costing.DATA</code>/<code>costing.SVC</code> × exchange rate); a deal with no device mapping and no manual cost override contributes AED 0 here, same as it would on Finance's own tab.${computed.financeC.incomeOxefitManual != null ? ' A manual override of ' + fmtAED(computed.financeC.incomeOxefitManual) + ' is currently active on the Finance tab — clear it to use this auto figure.' : ''}</p>`;
 }
 
 function renderReport() {
@@ -1087,7 +1186,7 @@ function renderReport() {
         ${cardHtml('Total cost', fmtAED(c.financeC.totalCost), 'Salaries + rent + marketing')}
       </div>
       <div class="grid cols-2" style="margin-top:12px;">
-        ${cardHtml('Income to OxeFit', fmtAED(c.financeC.incomeOxefit), 'Entered manually')}
+        ${cardHtml('Income to OxeFit', fmtAED(c.financeC.incomeOxefit), c.financeC.incomeOxefitManual != null ? 'Manual override' : 'Paid to OxeFit · Finance')}
         <div class="card"><h3>Gap (income − cost)</h3><div class="big" style="color:${c.financeC.gap>=0?'var(--ok)':'var(--bad)'}">${c.financeC.gap>=0?'+':''}${fmtAED(c.financeC.gap)}</div><div class="sub">Positive = OxeFit income covers cost</div></div>
       </div>
     </div>
@@ -1139,7 +1238,11 @@ function renderReport() {
 function collectManualInputs() {
   const own = safeObj(RAW.own);
   const manual = Object.assign({}, safeObj(own.manual));
-  manual.incomeOxefit = Number(document.getElementById('mIncomeOxefit').value) || 0;
+  // Blank clears the override (falls back to Finance's auto "Paid to
+  // OxeFit" figure) — distinct from a deliberate override of 0, so this
+  // can't be collapsed to `Number(...) || 0`.
+  const incomeOxefitRaw = document.getElementById('mIncomeOxefit').value;
+  manual.incomeOxefit = (incomeOxefitRaw === '' || incomeOxefitRaw == null) ? null : Number(incomeOxefitRaw);
   manual.financeNote = document.getElementById('mFinanceNote').value || '';
   manual.costReductionTarget = Number(document.getElementById('mCostReductionTarget').value) || 0;
   manual.costReductionAchieved = Number(document.getElementById('mCostReductionAchieved').value) || 0;
