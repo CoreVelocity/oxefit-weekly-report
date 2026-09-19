@@ -144,7 +144,7 @@ footer.foot{padding:24px;text-align:center;color:var(--muted);font-size:11.5px;}
   <h1>OxeFit Weekly Report</h1>
   <p>Pulls live from your Sales, HR and Finance tools on OneDrive and rolls them into the weekly report for OxeFit. Sign in with your CoreV Microsoft account to continue.</p>
   <div id="setupNotice"></div>
-  <button class="btn primary" id="btnSignIn" onclick="signInOneDrive()">Sign in with Microsoft</button>
+  <button class="btn primary" id="btnSignIn" onclick="signInOneDrive()"><span>Sign in with Microsoft</span></button>
   <div id="loginError"></div>
 </div>
 
@@ -360,21 +360,38 @@ async function initOneDrive() {
   }
 }
 
-function isRunningInPopup() { try { return !!(window.opener && window.opener !== window); } catch(_) { return false; } }
-
+// PRIMARY (and only) sign-in flow: loginRedirect. Popups are blocked by
+// default in most browsers (and Edge/Chrome's Cross-Origin-Opener-Policy
+// breaks loginPopup against login.microsoftonline.com even when the popup
+// isn't outright blocked) — this is the same fix already proven out in the
+// sales tracker. The browser navigates away to Microsoft, the user signs
+// in there, then lands back here where initOneDrive()'s
+// handleRedirectPromise() (called on page load) picks up the result and
+// calls launchApp(). Nothing runs after loginRedirect() on this page —
+// the redirect return is a fresh page load.
 async function signInOneDrive() {
   if (!msalInstance) { showLoginError('OneDrive is not configured on this page yet.'); return; }
+  const btn = document.getElementById('btnSignIn');
+  const lbl = btn && btn.querySelector('span');
+  const origLbl = lbl ? lbl.textContent : '';
   try {
-    if (isRunningInPopup()) { await msalInstance.loginRedirect({ scopes: ONEDRIVE_CONFIG.scopes }); return; }
-    const res = await msalInstance.loginPopup({ scopes: ONEDRIVE_CONFIG.scopes });
-    msalAccount = res.account;
-    await launchApp();
+    if (btn) btn.disabled = true;
+    if (lbl) lbl.textContent = 'Redirecting…';
+    // Clear any stuck interaction flag left over from a prior aborted
+    // attempt (e.g. the tab was closed mid-redirect) — otherwise MSAL can
+    // throw "interaction_in_progress" and the sign-in button looks dead.
+    try {
+      Object.keys(sessionStorage)
+        .filter(k => k.startsWith('msal.') && k.includes('interaction.status'))
+        .forEach(k => sessionStorage.removeItem(k));
+    } catch(_) {}
+    await msalInstance.loginRedirect({ scopes: ONEDRIVE_CONFIG.scopes, prompt: 'select_account' });
+    // browser navigates away — no code below this runs on this page load
   } catch (e) {
     console.error('Sign-in error', e);
-    if (e && (e.errorCode === 'popup_window_error' || /running in a popup/i.test(e.message || ''))) {
-      try { await msalInstance.loginRedirect({ scopes: ONEDRIVE_CONFIG.scopes }); return; } catch(_) {}
-    }
     showLoginError('Sign-in failed: ' + ((e && (e.errorMessage || e.message)) || 'unknown error'));
+    if (btn) btn.disabled = false;
+    if (lbl) lbl.textContent = origLbl || 'Sign in with Microsoft';
   }
 }
 
@@ -383,13 +400,15 @@ function signOut() {
   location.reload();
 }
 
+// Token refresh also stays redirect-only when the silent cache lookup
+// fails (e.g. a lapsed session) — no acquireTokenPopup fallback, so a
+// mid-session re-auth can't get eaten by a popup blocker either.
 async function getAccessToken() {
   const req = { scopes: ONEDRIVE_CONFIG.scopes, account: msalAccount };
   try { return (await msalInstance.acquireTokenSilent(req)).accessToken; }
   catch (e) {
-    if (isRunningInPopup()) { await msalInstance.acquireTokenRedirect(req); throw new Error('redirecting'); }
-    try { return (await msalInstance.acquireTokenPopup(req)).accessToken; }
-    catch (pe) { await msalInstance.acquireTokenRedirect(req); throw pe; }
+    await msalInstance.acquireTokenRedirect(req);
+    throw new Error('redirecting'); // browser is navigating away
   }
 }
 
