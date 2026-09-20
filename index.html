@@ -180,7 +180,6 @@ footer.foot{padding:24px;text-align:center;color:var(--muted);font-size:11.5px;}
     <button class="tab-btn" data-tab="sales">Sales &amp; Orders</button>
     <button class="tab-btn" data-tab="finance">Finance</button>
     <button class="tab-btn" data-tab="annualcost">Total Cost (Annual)</button>
-    <button class="tab-btn" data-tab="otherexpenses">Other Expenses</button>
     <button class="tab-btn" data-tab="showroom">Showroom / Warehouse</button>
     <button class="tab-btn" data-tab="targets">Targets</button>
     <button class="tab-btn" data-tab="leads">Marketing Leads</button>
@@ -244,19 +243,9 @@ footer.foot{padding:24px;text-align:center;color:var(--muted);font-size:11.5px;}
     <div class="tabpane" id="tab-annualcost">
       <div class="section">
         <h2>Total Cost (Annual) <span class="manual-tag">MANUAL</span></h2>
-        <p class="hint">This is the fiscal-year view — everything here is scoped to <b>January 1 of this year through today</b> (calendar-year FY), not just this month. <b>Total cost (annual)</b> is <b>not auto-computed</b>: add one row per month as it closes out, with what was actually paid for salaries, marketing, rent, and onboarding that month, and they add up to a running monthly-ledger subtotal — the same add/remove-row pattern as the rent quarters on the Finance tab. One-off costs that don't fit those 4 columns (a one-time purchase, travel, a legal fee) go on the separate <b>Other Expenses</b> tab instead — both roll into the <b>Total cost (annual)</b> figure below. <b>Income to OxeFit (FY-to-date)</b> is AUTO — the same Payouts &amp; OxeFit "Paid to OxeFit" math as the Finance tab, but restricted to deals closed within this fiscal year, so it lines up with the annual cost figure above it. The all-time figure is shown too for reference. <b>Gap (FY)</b> = Income to OxeFit (FY-to-date) − Total cost (annual) — this is the per-FY gap; the Finance tab's monthly cost isn't compared against it since the two aren't the same time window.</p>
+        <p class="hint">This is the fiscal-year view — everything here is scoped to <b>January 1 of this year through today</b> (calendar-year FY), not just this month. <b>Total cost (annual)</b> is <b>not auto-computed</b>: add one row per month as it closes out, with what was actually paid for salaries, marketing, rent, onboarding cost, and any other/miscellaneous expenses that month, and they add up to a running annual total — the same add/remove-row pattern as the rent quarters on the Finance tab. <b>Income to OxeFit (FY-to-date)</b> is AUTO — the same Payouts &amp; OxeFit "Paid to OxeFit" math as the Finance tab, but restricted to deals closed within this fiscal year, so it lines up with the annual cost figure above it. The all-time figure is shown too for reference. <b>Gap (FY)</b> = Income to OxeFit (FY-to-date) − Total cost (annual) — this is the per-FY gap; the Finance tab's monthly cost isn't compared against it since the two aren't the same time window.</p>
         <div id="annualCostCards" class="grid cols-4"></div>
         <div id="annualCostForms" style="margin-top:14px;"></div>
-      </div>
-    </div>
-
-    <!-- ============ OTHER EXPENSES ============ -->
-    <div class="tabpane" id="tab-otherexpenses">
-      <div class="section">
-        <h2>Other Expenses <span class="manual-tag">MANUAL</span></h2>
-        <p class="hint">One-off, dated costs that don't fit the Total Cost (Annual) tab's monthly salaries/marketing/rent/onboarding ledger — e.g. a one-time purchase, travel, a legal fee. Add one row per expense; each rolls into <b>Total cost (annual)</b> and the <b>Gap (FY)</b> on the Total Cost (Annual) tab.</p>
-        <div id="otherExpensesCards" class="grid cols-4"></div>
-        <div id="otherExpensesForms" style="margin-top:14px;"></div>
       </div>
     </div>
 
@@ -389,8 +378,9 @@ function isAuthorizedUser(account) {
    (shown on the sign-in screen, the access-denied screen, and the app
    header — see applyVersionTags()).
 ════════════════════════════════════════════════════════════════════ */
-const APP_VERSION = '2.1.0';
+const APP_VERSION = '2.1.1';
 const CHANGELOG = [
+  { v: '2.1.1', date: '2026-09-20', notes: 'Reworked the v2.1.0 Other Expenses tab into a 5th column ("Other expenses") right next to Onboarding cost in the Total Cost (Annual) monthly ledger, instead of a separate tab — one row per month covers everything now. Removed the redundant "Monthly ledger subtotal" card from the Total Cost (Annual) dashboard (any old Other Expenses tab data is migrated into the new column automatically on first save)' },
   { v: '2.1.0', date: '2026-09-20', notes: 'Total Cost (Annual) tab: the monthly cost ledger gets a 4th column, Onboarding cost, alongside salaries/marketing/rent; added a new Other Expenses tab for ad-hoc, dated one-off costs (same add/remove-row pattern) that also roll into Total cost (annual) and the FY Gap' },
   { v: '2.0.0', date: '2026-09-20', notes: 'Finance restructured to fix the monthly-cost-vs-all-time-income mismatch: "Total cost" is now explicitly "Total cost (this month)"; a new Total Cost (Annual) tab holds a manually entered month-by-month ledger (salaries/marketing/rent paid — same add/remove-row pattern as rent quarters) that sums to an annual total; Income to OxeFit now also has an FY-to-date variant (deals closed this fiscal year only) alongside the existing all-time figure; the Finance Gap is now Income to OxeFit (FY-to-date) − Total cost (annual), an apples-to-apples per-FY comparison, replacing the old monthly-cost-vs-all-time-income gap' },
   { v: '1.9.0', date: '2026-09-20', notes: 'Rent quarters are now a list you enter ahead of time (due date + amount, add as many as you like — e.g. all 4 for the year) instead of one field to update each quarter; each quarter is pulled into Total cost automatically once it\'s within 30 days of its due date, and drops off once ticked "Paid" — no manual toggling required' },
@@ -608,7 +598,7 @@ async function refreshAll() {
   RAW.own = o.ok ? o.data : { manual: {}, snapshots: {} };
   const anyOk = s.ok || h.ok || f.ok || dl.ok;
   setSync(anyOk ? 'ok' : 'error', anyOk ? 'Synced ' + new Date().toLocaleTimeString() : 'Could not reach sources');
-  rentDraft = null; annualCostDraft = null; otherExpensesDraft = null; // drop any in-progress add/remove edits, this is a fresh load
+  rentDraft = null; annualCostDraft = null; // drop any in-progress add/remove edits, this is a fresh load
   computeAll();
   renderAll();
 }
@@ -1060,39 +1050,37 @@ function computeAll() {
   const incomeOxefitFY = oxefitIncomeFY.paid;
 
   // Total Cost (Annual) — NOT auto-computed. Ahmed enters what was
-  // actually paid for salaries / marketing / rent / onboarding, month by
-  // month, as each month closes out (same growable add/remove-row pattern
-  // as the rent quarters above). The FY Gap then compares this running
-  // annual total against Income to OxeFit (FY-to-date) — an
-  // apples-to-apples, per-FY comparison, instead of the old
-  // monthly-cost-vs-all-time-income mismatch.
-  const annualCostMonths = safeArr(safeObj(manual.annualCost).months)
-    .filter(m => m && m.month)
+  // actually paid for salaries / marketing / rent / onboarding / other
+  // expenses, month by month, as each month closes out (same growable
+  // add/remove-row pattern as the rent quarters above). The FY Gap then
+  // compares this running annual total against Income to OxeFit
+  // (FY-to-date) — an apples-to-apples, per-FY comparison, instead of the
+  // old monthly-cost-vs-all-time-income mismatch.
+  const monthsMap = {};
+  safeArr(safeObj(manual.annualCost).months).filter(m => m && m.month).forEach(m => { monthsMap[m.month] = m; });
+  // One-time migration: v2.1.0 briefly had "Other Expenses" as its own
+  // separate dated list on its own tab. Fold any of that data into this
+  // month's ledger's Other expenses column (by the item's own month)
+  // rather than losing it now that it's a column here instead.
+  safeArr(safeObj(manual.otherExpenses).items).filter(x => x && x.date).forEach(x => {
+    const mk = String(x.date).slice(0, 7);
+    const existing = monthsMap[mk] || { month: mk };
+    monthsMap[mk] = Object.assign({}, existing, { otherExpenses: (Number(existing.otherExpenses) || 0) + (Number(x.amount) || 0) });
+  });
+  const annualCostMonths = Object.values(monthsMap)
     .map(m => {
-      const sal = Number(m.salaries) || 0, mkt = Number(m.marketing) || 0, rp = Number(m.rentPaid) || 0, onb = Number(m.onboarding) || 0;
-      return { month: m.month, salaries: sal, marketing: mkt, rentPaid: rp, onboarding: onb, total: sal + mkt + rp + onb };
+      const sal = Number(m.salaries) || 0, mkt = Number(m.marketing) || 0, rp = Number(m.rentPaid) || 0, onb = Number(m.onboarding) || 0, oe = Number(m.otherExpenses) || 0;
+      return { month: m.month, salaries: sal, marketing: mkt, rentPaid: rp, onboarding: onb, otherExpenses: oe, total: sal + mkt + rp + onb + oe };
     })
     .sort((a, b) => a.month.localeCompare(b.month));
-  const annualCostMonthsTotal = annualCostMonths.reduce((s, m) => s + m.total, 0);
-
-  // Other Expenses — a separate, ad-hoc, dated list of one-off costs that
-  // don't fit the monthly salaries/marketing/rent/onboarding columns
-  // (e.g. a one-time purchase, travel, a legal fee). Also manual, also
-  // rolls into Total cost (annual) / the FY Gap.
-  const otherExpenses = safeArr(safeObj(manual.otherExpenses).items)
-    .filter(x => x && x.date)
-    .map(x => ({ date: x.date, description: x.description || '', amount: Number(x.amount) || 0 }))
-    .sort((a, b) => a.date.localeCompare(b.date));
-  const otherExpensesTotal = otherExpenses.reduce((s, x) => s + x.amount, 0);
-
-  const annualCostTotal = annualCostMonthsTotal + otherExpensesTotal;
+  const annualCostTotal = annualCostMonths.reduce((s, m) => s + m.total, 0);
   const gapFY = incomeOxefitFY - annualCostTotal;
 
   const financeC = {
     salaries, rent, rentShowroom, rentWarehouse, marketing, totalCost,
     incomeOxefit, incomeOxefitAuto: oxefitIncome.paid, incomeOxefitManual, oxefitIncome,
     oxefitIncomeFY, incomeOxefitFY,
-    annualCostMonths, annualCostMonthsTotal, otherExpenses, otherExpensesTotal, annualCostTotal, gapFY
+    annualCostMonths, annualCostTotal, gapFY
   };
 
   // ---- (d) showroom/warehouse relocation — fully manual ----
@@ -1149,7 +1137,7 @@ function computeAll() {
    RENDER
 ════════════════════════════════════════════════════════════════════ */
 function renderAll() {
-  renderSales(); renderFinance(); renderAnnualCost(); renderOtherExpenses(); renderShowroom(); renderTargets(); renderLeads(); renderTeam(); renderHealth(); renderReport();
+  renderSales(); renderFinance(); renderAnnualCost(); renderShowroom(); renderTargets(); renderLeads(); renderTeam(); renderHealth(); renderReport();
 }
 
 function cardHtml(title, big, sub, tag) {
@@ -1358,15 +1346,16 @@ function renderRentForms() {
 }
 
 // ---- Total Cost (Annual) — a growable list of {month, salaries, marketing,
-// rentPaid, onboarding} rows Ahmed fills in by hand as each month closes
-// out. Same draft/add/remove pattern as the rent quarters above, kept as
-// its own small draft object so editing it doesn't disturb rentDraft.
+// rentPaid, onboarding, otherExpenses} rows Ahmed fills in by hand as each
+// month closes out. Same draft/add/remove pattern as the rent quarters
+// above, kept as its own small draft object so editing it doesn't disturb
+// rentDraft.
 let annualCostDraft = null;
 
 function currentAnnualCostMonths() {
   if (annualCostDraft) return annualCostDraft;
   const months = computed.financeC ? computed.financeC.annualCostMonths : [];
-  return (months || []).map(m => ({ month: m.month, salaries: m.salaries, marketing: m.marketing, rentPaid: m.rentPaid, onboarding: m.onboarding }));
+  return (months || []).map(m => ({ month: m.month, salaries: m.salaries, marketing: m.marketing, rentPaid: m.rentPaid, onboarding: m.onboarding, otherExpenses: m.otherExpenses }));
 }
 
 function collectAnnualCostDraftFromDOM() {
@@ -1381,7 +1370,8 @@ function collectAnnualCostDraftFromDOM() {
       salaries: num(`mAnnualCost_${i}_salaries`),
       marketing: num(`mAnnualCost_${i}_marketing`),
       rentPaid: num(`mAnnualCost_${i}_rentPaid`),
-      onboarding: num(`mAnnualCost_${i}_onboarding`)
+      onboarding: num(`mAnnualCost_${i}_onboarding`),
+      otherExpenses: num(`mAnnualCost_${i}_otherExpenses`)
     });
   });
   return out;
@@ -1389,7 +1379,7 @@ function collectAnnualCostDraftFromDOM() {
 
 function addAnnualCostMonth() {
   const draft = collectAnnualCostDraftFromDOM();
-  draft.push({ month: '', salaries: '', marketing: '', rentPaid: '', onboarding: '' });
+  draft.push({ month: '', salaries: '', marketing: '', rentPaid: '', onboarding: '', otherExpenses: '' });
   annualCostDraft = draft;
   renderAnnualCost();
 }
@@ -1404,17 +1394,15 @@ function removeAnnualCostMonth(idx) {
 function renderAnnualCost() {
   const c = computed.financeC;
   document.getElementById('annualCostCards').innerHTML = [
-    cardHtml('Total cost (annual)', fmtAED(c.annualCostTotal), 'Monthly ledger + other expenses', 'MANUAL'),
-    cardHtml('Monthly ledger subtotal', fmtAED(c.annualCostMonthsTotal), c.annualCostMonths.length + ' month(s) entered', 'MANUAL'),
-    cardHtml('Other expenses subtotal', fmtAED(c.otherExpensesTotal), c.otherExpenses.length + ' item(s) entered', 'MANUAL'),
-    cardHtml('Income to OxeFit (FY-to-date)', fmtAED(c.incomeOxefitFY), 'Paid to OxeFit · Finance · closed this FY · ' + c.oxefitIncomeFY.dealsWithCost + ' deal(s)', 'AUTO')
+    cardHtml('Total cost (annual)', fmtAED(c.annualCostTotal), c.annualCostMonths.length + ' month(s) entered', 'MANUAL'),
+    cardHtml('Income to OxeFit (FY-to-date)', fmtAED(c.incomeOxefitFY), 'Paid to OxeFit · Finance · closed this FY · ' + c.oxefitIncomeFY.dealsWithCost + ' deal(s)', 'AUTO'),
+    cardHtml('Income to OxeFit (all-time)', fmtAED(c.incomeOxefit), 'For reference — since day 0, see Finance tab', 'AUTO')
   ].join('')
-    + `<div class="card"><h3>Gap (FY)</h3><div class="big" style="color:${c.gapFY>=0?'var(--ok)':'var(--bad)'}">${c.gapFY>=0?'+':''}${fmtAED(c.gapFY)}</div><div class="sub">Income to OxeFit (FY-to-date) − Total cost (annual)</div></div>`
-    + `<div class="card"><h3>Income to OxeFit (all-time)</h3><div class="big">${fmtAED(c.incomeOxefit)}</div><div class="sub">For reference — since day 0, see Finance tab</div></div>`;
+    + `<div class="card"><h3>Gap (FY)</h3><div class="big" style="color:${c.gapFY>=0?'var(--ok)':'var(--bad)'}">${c.gapFY>=0?'+':''}${fmtAED(c.gapFY)}</div><div class="sub">Income to OxeFit (FY-to-date) − Total cost (annual)</div></div>`;
 
   const rows = currentAnnualCostMonths();
   const monthRows = rows.map((m, i) => {
-    const total = (Number(m.salaries) || 0) + (Number(m.marketing) || 0) + (Number(m.rentPaid) || 0) + (Number(m.onboarding) || 0);
+    const total = (Number(m.salaries) || 0) + (Number(m.marketing) || 0) + (Number(m.rentPaid) || 0) + (Number(m.onboarding) || 0) + (Number(m.otherExpenses) || 0);
     const val = v => (v === '' || v == null) ? '' : v;
     return `<div class="field-row" style="align-items:center;">
       <div class="field"><label>${i === 0 ? 'Month' : ''}</label><input type="month" id="mAnnualCost_${i}_month" value="${m.month || ''}"></div>
@@ -1422,6 +1410,7 @@ function renderAnnualCost() {
       <div class="field"><label>${i === 0 ? 'Marketing (AED)' : ''}</label><input type="number" id="mAnnualCost_${i}_marketing" step="1" value="${val(m.marketing)}"></div>
       <div class="field"><label>${i === 0 ? 'Rent paid (AED)' : ''}</label><input type="number" id="mAnnualCost_${i}_rentPaid" step="1" value="${val(m.rentPaid)}"></div>
       <div class="field"><label>${i === 0 ? 'Onboarding cost (AED)' : ''}</label><input type="number" id="mAnnualCost_${i}_onboarding" step="1" value="${val(m.onboarding)}"></div>
+      <div class="field"><label>${i === 0 ? 'Other expenses (AED)' : ''}</label><input type="number" id="mAnnualCost_${i}_otherExpenses" step="1" value="${val(m.otherExpenses)}"></div>
       <div style="${i===0?'margin-top:22px;':''}" class="sub">${fmtAED(total)}</div>
       <button type="button" class="btn small" style="${i===0?'margin-top:22px;':''}" onclick="removeAnnualCostMonth(${i})">✕</button>
     </div>`;
@@ -1429,81 +1418,11 @@ function renderAnnualCost() {
 
   document.getElementById('annualCostForms').innerHTML = `<div class="card">
       <h3>Monthly cost ledger <span class="manual-tag">MANUAL</span></h3>
-      <p class="hint">One row per month — salaries, marketing, rent and onboarding cost actually paid that month. These add up to the monthly ledger subtotal above. One-off costs that don't fit these columns go on the <b>Other Expenses</b> tab instead.</p>
+      <p class="hint">One row per month — salaries, marketing, rent, onboarding cost, and any other/miscellaneous expenses actually paid that month. These add up to Total cost (annual) above.</p>
       ${monthRows}
       <button type="button" class="btn small" onclick="addAnnualCostMonth()">+ Add month</button>
     </div>
     <button class="btn primary small" style="margin-top:12px;" onclick="saveManualInputs()">Save annual cost figures</button>`;
-}
-
-// ---- Other Expenses — an ad-hoc, dated list of one-off costs (e.g. a
-// one-time purchase, travel, a legal fee) that don't fit the monthly
-// salaries/marketing/rent/onboarding columns. Rolls into Total cost
-// (annual) / the FY Gap alongside the monthly ledger. Same growable
-// add/remove-row pattern as everywhere else on this tab.
-let otherExpensesDraft = null;
-
-function currentOtherExpenses() {
-  if (otherExpensesDraft) return otherExpensesDraft;
-  const items = computed.financeC ? computed.financeC.otherExpenses : [];
-  return (items || []).map(x => ({ date: x.date, description: x.description, amount: x.amount }));
-}
-
-function collectOtherExpensesDraftFromDOM() {
-  const rows = currentOtherExpenses();
-  const out = [];
-  rows.forEach((_, i) => {
-    const dateEl = document.getElementById(`mOtherExp_${i}_date`);
-    if (!dateEl) return;
-    const amtEl = document.getElementById(`mOtherExp_${i}_amount`);
-    const descEl = document.getElementById(`mOtherExp_${i}_desc`);
-    out.push({
-      date: dateEl.value || '',
-      description: descEl ? descEl.value || '' : '',
-      amount: (amtEl && amtEl.value !== '') ? Number(amtEl.value) : ''
-    });
-  });
-  return out;
-}
-
-function addOtherExpense() {
-  const draft = collectOtherExpensesDraftFromDOM();
-  draft.push({ date: '', description: '', amount: '' });
-  otherExpensesDraft = draft;
-  renderOtherExpenses();
-}
-
-function removeOtherExpense(idx) {
-  const draft = collectOtherExpensesDraftFromDOM();
-  draft.splice(idx, 1);
-  otherExpensesDraft = draft;
-  renderOtherExpenses();
-}
-
-function renderOtherExpenses() {
-  const c = computed.financeC;
-  document.getElementById('otherExpensesCards').innerHTML = [
-    cardHtml('Other expenses total', fmtAED(c.otherExpensesTotal), c.otherExpenses.length + ' item(s) entered', 'MANUAL')
-  ].join('');
-
-  const rows = currentOtherExpenses();
-  const itemRows = rows.map((x, i) => {
-    const val = v => (v === '' || v == null) ? '' : v;
-    return `<div class="field-row" style="align-items:center;">
-      <div class="field"><label>${i === 0 ? 'Date' : ''}</label><input type="date" id="mOtherExp_${i}_date" value="${x.date || ''}"></div>
-      <div class="field" style="flex:2;"><label>${i === 0 ? 'Description' : ''}</label><input type="text" id="mOtherExp_${i}_desc" value="${x.description ? esc(x.description) : ''}"></div>
-      <div class="field"><label>${i === 0 ? 'Amount (AED)' : ''}</label><input type="number" id="mOtherExp_${i}_amount" step="1" value="${val(x.amount)}"></div>
-      <button type="button" class="btn small" style="${i===0?'margin-top:22px;':''}" onclick="removeOtherExpense(${i})">✕</button>
-    </div>`;
-  }).join('') || '<p class="hint">No expenses entered yet — add one below.</p>';
-
-  document.getElementById('otherExpensesForms').innerHTML = `<div class="card">
-      <h3>Other expenses <span class="manual-tag">MANUAL</span></h3>
-      <p class="hint">One-off costs that don't fit the monthly salaries/marketing/rent/onboarding ledger on the Total Cost (Annual) tab — e.g. a one-time purchase, travel, a legal fee. Each item rolls into Total cost (annual) and the FY Gap.</p>
-      ${itemRows}
-      <button type="button" class="btn small" onclick="addOtherExpense()">+ Add expense</button>
-    </div>
-    <button class="btn primary small" style="margin-top:12px;" onclick="saveManualInputs()">Save other expenses</button>`;
 }
 
 function renderShowroom() {
@@ -1581,7 +1500,7 @@ function renderHealth() {
   <p class="hint">Closed Won here is computed from the sales tracker's OneDrive file (max per rep, per month — matches its exec dashboard's fallback logic). The tracker's dashboard can also override this with a HubSpot-refreshed cache that lives only in your browser's local storage, never in the OneDrive file, so if you've recently clicked "Refresh from HubSpot" there this figure may still be a few deals behind. Ask if you want this pulled live from HubSpot instead for an exact match.</p>
   <p class="hint">Closed XS1/XP1 units (FY lump sum): read from the <b>Delivery Tracker</b> (the delivery CRM) — ${computed.del.deliveries.length} delivery record(s) total, ${ob.closedDealsCount} past the OPEN stage (Delivered - pending session / Delivered - installation pending / Postponed / Closed), of which ${ob.closedDealsWithoutMapping} have no delivery date and can't be placed in a month, and ${ob.closed.unmapped} have a model name that isn't recognized as XS1 or XP1. FY-to-date = those records whose delivery date falls in Jan–${fmtMonth(computed.now)}, matching the scope of the FY Achieved (AED) figure above.</p>
   <p class="hint">Income to OxeFit (auto, all-time): mirrors Finance's Payouts &amp; OxeFit "Paid to OxeFit" KPI exactly — ${computed.financeC.oxefitIncome.dealsWithCost} of ${computed.financeC.oxefitIncome.dealsCount} closed deal(s) EVER (since day 0, no month or FY filter) have an OxeFit cost (device mapping or manual override), totalling ${fmtAED(computed.financeC.oxefitIncome.totalCost)} owed to OxeFit, of which ${fmtAED(computed.financeC.oxefitIncome.paid)} is paid (settled) and ${fmtAED(computed.financeC.oxefitIncome.outstanding)} is still outstanding. Unit costs come from Finance's Costing catalog (<code>costing.DATA</code>/<code>costing.SVC</code> × exchange rate); a deal with no device mapping and no manual cost override contributes AED 0 here, same as it would on Finance's own tab.${computed.financeC.incomeOxefitManual != null ? ' A manual override of ' + fmtAED(computed.financeC.incomeOxefitManual) + ' is currently active on the Finance tab — clear it to use this auto figure.' : ''}</p>
-  <p class="hint">Income to OxeFit (FY-to-date), on the Total Cost (Annual) tab: the exact same math, restricted to deals whose Finance month label falls in this fiscal year (matching the Sales tab's FY scope) — ${computed.financeC.oxefitIncomeFY.dealsWithCost} of ${computed.financeC.oxefitIncomeFY.dealsCount} FY-closed deal(s) have an OxeFit cost, of which ${fmtAED(computed.financeC.oxefitIncomeFY.paid)} is paid. This is the figure compared against Total cost (annual) — ${fmtAED(computed.financeC.annualCostTotal)}, made up of ${fmtAED(computed.financeC.annualCostMonthsTotal)} from ${computed.financeC.annualCostMonths.length} manually entered month(s) (salaries/marketing/rent/onboarding) plus ${fmtAED(computed.financeC.otherExpensesTotal)} from ${computed.financeC.otherExpenses.length} item(s) on the Other Expenses tab — for the FY Gap (${(computed.financeC.gapFY>=0?'+':'')+fmtAED(computed.financeC.gapFY)}). The Finance tab's monthly Total cost is intentionally not compared against the all-time income figure for a "gap" any more, since the two cover different time windows.</p>`;
+  <p class="hint">Income to OxeFit (FY-to-date), on the Total Cost (Annual) tab: the exact same math, restricted to deals whose Finance month label falls in this fiscal year (matching the Sales tab's FY scope) — ${computed.financeC.oxefitIncomeFY.dealsWithCost} of ${computed.financeC.oxefitIncomeFY.dealsCount} FY-closed deal(s) have an OxeFit cost, of which ${fmtAED(computed.financeC.oxefitIncomeFY.paid)} is paid. This is the figure compared against Total cost (annual) — ${fmtAED(computed.financeC.annualCostTotal)} from ${computed.financeC.annualCostMonths.length} manually entered month(s), each with salaries/marketing/rent/onboarding/other-expenses columns — for the FY Gap (${(computed.financeC.gapFY>=0?'+':'')+fmtAED(computed.financeC.gapFY)}). The Finance tab's monthly Total cost is intentionally not compared against the all-time income figure for a "gap" any more, since the two cover different time windows.</p>`;
 }
 
 function renderReport() {
@@ -1637,7 +1556,7 @@ function renderReport() {
       </div>
       <div class="rsec-head" style="margin-top:18px;"><h2 style="font-size:15px;">Annual (fiscal-year-to-date)</h2></div>
       <div class="grid cols-3">
-        ${cardHtml('Total cost (annual)', fmtAED(c.financeC.annualCostTotal), c.financeC.annualCostMonths.length + ' month(s) + ' + c.financeC.otherExpenses.length + ' other expense(s)')}
+        ${cardHtml('Total cost (annual)', fmtAED(c.financeC.annualCostTotal), c.financeC.annualCostMonths.length + ' month(s) entered')}
         ${cardHtml('Income to OxeFit (FY-to-date)', fmtAED(c.financeC.incomeOxefitFY), 'Deals closed this FY')}
         <div class="card"><h3>Gap (FY)</h3><div class="big" style="color:${c.financeC.gapFY>=0?'var(--ok)':'var(--bad)'}">${c.financeC.gapFY>=0?'+':''}${fmtAED(c.financeC.gapFY)}</div><div class="sub">Income to OxeFit (FY-to-date) − Total cost (annual)</div></div>
       </div>
@@ -1732,14 +1651,16 @@ function collectManualInputs() {
   rentDraft = null;
 
   // Total Cost (Annual) — the manually entered month-by-month ledger
-  // (including the onboarding column), read straight from the DOM the
-  // same way as the rent quarters above.
+  // (salaries/marketing/rent/onboarding/other expenses columns), read
+  // straight from the DOM the same way as the rent quarters above. The
+  // DOM already reflects computeAll()'s one-time migration of the brief
+  // v2.1.0 separate "Other Expenses" list into this ledger's Other
+  // expenses column, so this save captures that migrated total — clear
+  // the old separate list here so it isn't merged in a second time on the
+  // next load (which would double-count it).
   manual.annualCost = { months: collectAnnualCostDraftFromDOM() };
   annualCostDraft = null;
-
-  // Other Expenses — the ad-hoc dated expense list, same pattern.
-  manual.otherExpenses = { items: collectOtherExpensesDraftFromDOM() };
-  otherExpensesDraft = null;
+  delete manual.otherExpenses;
 
   manual.costReductionTarget = Number(document.getElementById('mCostReductionTarget').value) || 0;
   manual.costReductionAchieved = Number(document.getElementById('mCostReductionAchieved').value) || 0;
