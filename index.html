@@ -469,8 +469,9 @@ function isAuthorizedUser(account) {
    (shown on the sign-in screen, the access-denied screen, and the app
    header — see applyVersionTags()).
 ════════════════════════════════════════════════════════════════════ */
-const APP_VERSION = '2.9.0';
+const APP_VERSION = '2.10.0';
 const CHANGELOG = [
+  { v: '2.10.0', date: '2026-09-20', notes: 'Removed the duplicate cost-distribution donut chart under Finance — cost vs. income in the Weekly Report (kept the one in the executive summary). Fixed the Employee status & closures table (report + Team tab) showing the same person twice under a short roster name and their full HR name (e.g. "Fatima" / "Fatima Wardani", "Wafiq" / "Wafiq Adel Ismail Mohamed Yahia") — these are now merged into a single row using the HR record\'s status/region and combined closure count' },
   { v: '2.9.0', date: '2026-09-20', notes: 'Trimmed several long paragraph descriptions down to one line: Finance, Total Cost (Annual) and FY target progress tabs. Removed the yellow "Income to OxeFit above is all-time cumulative..." note from the Finance tab. Removed the redundant "MANUAL" badge next to the Finance tab\'s "Manual override" header. Removed the "Cost reduction vs target" card from the Targets tab (already shown as the Cost Optimizing Target hero KPI and on the Cost Optimizing Targets tab). Removed the Owner column from the Marketing Leads table' },
   { v: '2.8.0', date: '2026-09-20', notes: 'Added two donut charts to the Weekly Report\'s executive summary: FY Target vs. Achieved (a progress ring, green once the target is met) and Total Cost Distribution (this month) across Salaries / Showroom rent / Warehouse rent / Marketing, each with a legend and percentages; the same cost-distribution chart is repeated under Finance — cost vs. income for a closer look. Also hardened print/PDF export: forced print-color-adjust so foreground text colors can\'t be silently dropped by the browser\'s print pipeline (this was very likely why the report title went missing on export), removed a decorative background overlay that only exists on screen, and stopped the hero section from splitting across a page break' },
   { v: '2.7.0', date: '2026-09-20', notes: 'Weekly Report dashboard reworked: "Paid to OxeFit (FY)" is now "Orders to OxeFit (FY)" — the full value of every deal closed this FY, paid or still outstanding (was paid-only before), and the Finance Gap (FY) is now Orders to OxeFit (FY) minus Total cost (annual) to match; "Leads This Month" relabeled "Marketing Leads Generated (this month)"; added a new full-width "Income to OxeFit (all-time)" banner above the report title, spanning the whole hero section; any negative figure (Finance Gap, cost-optimizing %) now shows in red both on screen and in the printed/exported PDF (previously the print stylesheet flattened all report colors to black); the Total Cost (Annual) tab and report section\'s "Income to OxeFit (FY-to-date)" card is likewise now "Orders to OxeFit (FY)"; Marketing leads this month\'s per-stage cards now lay out in a single row instead of wrapping' },
@@ -1248,20 +1249,46 @@ function computeAll() {
   // ---- (g) employees ----
   const roster = safeObj(sales.roster);
   const teams = (roster.teams && Object.keys(roster.teams).length) ? roster.teams : FALLBACK_TEAMS;
-  const repNames = new Set();
-  Object.values(teams).forEach(list => safeArr(list).forEach(n => repNames.add(n)));
-  hr.employees.forEach(e => { if (e.name) repNames.add(e.name); });
+  const rosterNames = new Set();
+  Object.values(teams).forEach(list => safeArr(list).forEach(n => rosterNames.add(n)));
+
+  // Roster lists sometimes use a short first name ("Fatima") while HR has
+  // the full legal name ("Fatima Wardani") for the same person. Merge those
+  // into one canonical record (the HR one, when it exists) instead of
+  // listing the same person twice — matching by exact name, or by the
+  // roster name being the first word of the HR name.
+  function isNameAlias(shortName, fullName) {
+    if (shortName === fullName) return true;
+    const shortLower = shortName.trim().toLowerCase();
+    const fullWords = fullName.trim().toLowerCase().split(/\s+/);
+    return fullWords.length > 1 && fullWords[0] === shortLower;
+  }
+  const nameAliases = {}; // canonical name -> [all names (roster/HR) referring to this person]
+  const unmatchedRosterNames = [];
+  rosterNames.forEach(rn => {
+    const hrMatch = hr.employees.find(e => e.name && isNameAlias(rn, e.name));
+    if (hrMatch) {
+      (nameAliases[hrMatch.name] = nameAliases[hrMatch.name] || [hrMatch.name]).push(rn);
+    } else {
+      unmatchedRosterNames.push(rn);
+    }
+  });
+  hr.employees.forEach(e => { if (e.name && !nameAliases[e.name]) nameAliases[e.name] = [e.name]; });
+  unmatchedRosterNames.forEach(rn => { if (!nameAliases[rn]) nameAliases[rn] = [rn]; });
+  const repNames = new Set(Object.keys(nameAliases));
 
   function closuresThisMonth(name) {
-    return thisMonthRows.filter(r => r.rep === name && Number(r.closedWon) > 0).length;
+    const aliases = nameAliases[name] || [name];
+    return thisMonthRows.filter(r => aliases.includes(r.rep) && Number(r.closedWon) > 0).length;
   }
   const employeeNotes = safeObj(manual.employeeNotes);
   const teamG = Array.from(repNames).sort().map(name => {
     const hrRec = hr.employees.find(e => e.name === name);
-    const region = Object.keys(teams).find(k => safeArr(teams[k]).includes(name)) || (hrRec && hrRec.department) || '—';
+    const aliases = nameAliases[name] || [name];
+    const region = Object.keys(teams).find(k => safeArr(teams[k]).some(n => aliases.includes(n))) || (hrRec && hrRec.department) || '—';
     return {
       name, region,
-      status: hrRec ? hrRec.status : (ADMIN_REPS.includes(name) ? 'Admin' : '—'),
+      status: hrRec ? hrRec.status : (aliases.some(a => ADMIN_REPS.includes(a)) ? 'Admin' : '—'),
       designation: hrRec ? hrRec.designation : '',
       closuresThisMonth: closuresThisMonth(name),
       note: employeeNotes[name] || ''
@@ -1806,9 +1833,6 @@ function renderReport() {
       <div class="grid cols-2" style="margin-top:12px;">
         ${cardHtml('Total cost (this month)', fmtAED(c.financeC.totalCost), 'Salaries + rent + marketing, this month only')}
         ${cardHtml('Income to OxeFit (all-time)', fmtAED(c.financeC.incomeOxefit), (c.financeC.incomeOxefitManual != null ? 'Manual override' : 'Paid to OxeFit · Finance') + ' · since day 0, not month-scoped')}
-      </div>
-      <div class="grid" style="grid-template-columns:1fr;margin-top:12px;">
-        ${costDistributionChartHTML(c.financeC, 'Where this month\'s cost is going', 'Same breakdown shown in the executive summary above')}
       </div>
       <div class="rsec-head" style="margin-top:18px;"><h2 style="font-size:15px;">Annual (fiscal-year-to-date)</h2></div>
       <div class="grid cols-3">
