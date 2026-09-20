@@ -152,44 +152,27 @@ pre.raw{max-height:260px;overflow:auto;background:#050A1C;border:1px solid var(-
 footer.foot{padding:24px;text-align:center;color:var(--muted);font-size:11.5px;}
 
 /* Print / report export — only the Weekly Report tab's content prints,
-   regardless of which tab is active on screen. */
+   regardless of which tab is active on screen, and it keeps the same dark
+   navy theme + colors shown on screen rather than switching to a plain
+   white/black "print-friendly" look. */
 @media print{
-  /* Force the browser to actually paint the colors below instead of
-     stripping/adjusting them for "print-friendly" output — without this,
-     some browsers' print/PDF pipeline can drop foreground text colors
-     (not just backgrounds), which is what made the report title vanish
-     on export even though it renders fine on screen. */
+  /* Force the browser to actually paint background colors and text colors
+     instead of stripping/adjusting them for a lighter "print-friendly"
+     rendering — without this, some browsers' print/PDF pipeline can drop
+     background fills and even foreground text colors (this was very
+     likely why the report title once went missing on export). */
   *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;color-adjust:exact !important;}
   header.top, nav.tabs, .no-print{display:none !important;}
   main{max-width:100%;padding:0;}
-  body{background:#fff;color:#111;}
-  .card, .rcard, .rtable-wrap, .hero-kpi, .income-banner{background:#fff;border:1px solid #ccc;}
-  .report-hero{background:#fff;border:1px solid #ccc;overflow:visible;page-break-inside:avoid;break-inside:avoid;}
+  html, body{background:var(--bg) !important;}
+  /* Keep sections/cards from splitting awkwardly across a page break —
+     everything else (backgrounds, borders, text/badge colors, chart
+     colors) is left exactly as it renders on screen. */
+  .report-hero, .card, .rcard, .rtable-wrap, .hero-kpi, .income-banner, .chart-card{page-break-inside:avoid;break-inside:avoid;}
+  /* The hero's decorative radial-glow overlay is screen-only flourish;
+     hiding it on export avoids any risk of it interfering with the title
+     text sitting underneath it. */
   .report-hero::after{display:none !important;}
-  .report-hero *, .rcard *{color:#111 !important;}
-  /* Belt-and-suspenders: the wildcard rule above should already cover
-     these, but the title/eyebrow line is the one Ahmed reported missing
-     from the exported PDF, so it gets its own explicit, high-specificity
-     rule too rather than relying only on the descendant wildcard. */
-  .report-hero .eyebrow, .report-hero h1, .report-hero .meta-line, .income-banner .lbl, .income-banner .val, .income-banner .sub{color:#111 !important;}
-  /* Negative/positive figures still need to read as red/green on a
-     printed or exported PDF, not just on screen — override the blanket
-     black-text rule above specifically for elements using those two
-     color tokens (their raw inline style attribute still contains the
-     var(--ok)/var(--bad) text even though the rule above intercepts the
-     resolved value). */
-  .report-hero [style*="--bad"], .rcard [style*="--bad"]{color:#c0392b !important;}
-  .report-hero [style*="--ok"], .rcard [style*="--ok"]{color:#1e8449 !important;}
-  /* Donut charts: CSS `color` doesn't touch SVG text (it uses `fill`), so
-     the wildcard rule above misses it — force the center labels dark
-     explicitly. The colored ring segments themselves keep their actual
-     categorical/status colors (that's the whole point of the chart); only
-     the pale on-screen "empty/remaining" track is swapped for a visible
-     light gray so it doesn't vanish into the white page. */
-  .chart-card{background:#fff;border:1px solid #ccc;}
-  svg text{fill:#111 !important;}
-  svg circle[stroke="rgba(255,255,255,.10)"]{stroke:#e2e2e2 !important;}
-  .chart-legend .swatch[style*="rgba(255,255,255,.25)"]{background:#ccc !important;}
   .tabpane{display:none !important;}
   #tab-report{display:block !important;}
 }
@@ -469,8 +452,9 @@ function isAuthorizedUser(account) {
    (shown on the sign-in screen, the access-denied screen, and the app
    header — see applyVersionTags()).
 ════════════════════════════════════════════════════════════════════ */
-const APP_VERSION = '2.10.0';
+const APP_VERSION = '2.11.0';
 const CHANGELOG = [
+  { v: '2.11.0', date: '2026-09-20', notes: 'PDF/print export now keeps the same dark navy theme and colors shown on screen instead of switching to a plain white/black "print-friendly" look — cards, the hero banner, badges, and the donut charts all export in their real colors' },
   { v: '2.10.0', date: '2026-09-20', notes: 'Removed the duplicate cost-distribution donut chart under Finance — cost vs. income in the Weekly Report (kept the one in the executive summary). Fixed the Employee status & closures table (report + Team tab) showing the same person twice under a short roster name and their full HR name (e.g. "Fatima" / "Fatima Wardani", "Wafiq" / "Wafiq Adel Ismail Mohamed Yahia") — these are now merged into a single row using the HR record\'s status/region and combined closure count' },
   { v: '2.9.0', date: '2026-09-20', notes: 'Trimmed several long paragraph descriptions down to one line: Finance, Total Cost (Annual) and FY target progress tabs. Removed the yellow "Income to OxeFit above is all-time cumulative..." note from the Finance tab. Removed the redundant "MANUAL" badge next to the Finance tab\'s "Manual override" header. Removed the "Cost reduction vs target" card from the Targets tab (already shown as the Cost Optimizing Target hero KPI and on the Cost Optimizing Targets tab). Removed the Owner column from the Marketing Leads table' },
   { v: '2.8.0', date: '2026-09-20', notes: 'Added two donut charts to the Weekly Report\'s executive summary: FY Target vs. Achieved (a progress ring, green once the target is met) and Total Cost Distribution (this month) across Salaries / Showroom rent / Warehouse rent / Marketing, each with a legend and percentages; the same cost-distribution chart is repeated under Finance — cost vs. income for a closer look. Also hardened print/PDF export: forced print-color-adjust so foreground text colors can\'t be silently dropped by the browser\'s print pipeline (this was very likely why the report title went missing on export), removed a decorative background overlay that only exists on screen, and stopped the hero section from splitting across a page break' },
