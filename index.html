@@ -46,6 +46,10 @@ header.top .brand small{display:block;font-weight:500;color:var(--muted);font-si
 #syncBadge.syncing{border-color:var(--warn);color:var(--warn);}
 #syncBadge.error{border-color:var(--bad);color:var(--bad);}
 #periodLabel{font-size:12.5px;color:var(--muted);padding:5px 10px;border:1px solid var(--line);border-radius:20px;}
+.currency-toggle{display:flex;border:1px solid var(--line);border-radius:20px;overflow:hidden;}
+.currency-btn{background:none;border:none;color:var(--muted);padding:5px 12px;font-size:11.5px;font-weight:700;letter-spacing:.03em;}
+.currency-btn.active{background:var(--blue);color:#fff;}
+.currency-btn:not(.active):hover{color:#fff;}
 
 nav.tabs{display:flex;gap:4px;padding:0 20px;background:var(--panel);border-bottom:1px solid var(--line);overflow-x:auto;}
 nav.tabs button{background:none;border:none;color:var(--muted);padding:12px 14px;font-size:13px;font-weight:600;border-bottom:2px solid transparent;white-space:nowrap;}
@@ -169,6 +173,10 @@ footer.foot{padding:24px;text-align:center;color:var(--muted);font-size:11.5px;}
     </div>
     <span class="version-tag" id="versionTagApp"></span>
     <div class="spacer"></div>
+    <div class="currency-toggle" role="group" aria-label="Display currency">
+      <button type="button" class="currency-btn" data-cur="AED" onclick="setDisplayCurrency('AED')">AED</button>
+      <button type="button" class="currency-btn" data-cur="USD" onclick="setDisplayCurrency('USD')">USD</button>
+    </div>
     <span id="periodLabel">—</span>
     <span id="syncBadge">offline</span>
     <button class="btn small" onclick="refreshAll()">Refresh data</button>
@@ -359,6 +367,19 @@ const OWN_FILE = '/OXEFIT/oxefit-weekly-report.json';
 // the rent cost calculation.
 const CENTRAL_DEFAULTS = { marketing: 32000 };
 
+// Display currency toggle — all figures are entered and stored in AED;
+// this only affects how fmtAED() renders them. Fixed peg, matches the
+// UAE Central Bank's official AED/USD rate.
+const USD_RATE = 3.67; // 1 USD = 3.67 AED
+let displayCurrency = 'AED';
+try { displayCurrency = localStorage.getItem('oxefitDisplayCurrency') || 'AED'; } catch (e) {}
+function setDisplayCurrency(cur) {
+  displayCurrency = (cur === 'USD') ? 'USD' : 'AED';
+  try { localStorage.setItem('oxefitDisplayCurrency', displayCurrency); } catch (e) {}
+  document.querySelectorAll('.currency-btn').forEach(b => b.classList.toggle('active', b.dataset.cur === displayCurrency));
+  renderAll(); // the toggle only appears once #app (and its data) is already showing
+}
+
 // Reps excluded from headcount/commission views in the sales tracker (admins)
 const ADMIN_REPS = ['Gladys','Ahmed','Sami','Kamal'];
 const FALLBACK_TEAMS = { 'Dubai': ['Fatima','Marios','Hasan','Katy','Milena'], 'Abu Dhabi': ['Wafiq','Jawdat','Hussean'] };
@@ -385,8 +406,9 @@ function isAuthorizedUser(account) {
    (shown on the sign-in screen, the access-denied screen, and the app
    header — see applyVersionTags()).
 ════════════════════════════════════════════════════════════════════ */
-const APP_VERSION = '2.2.0';
+const APP_VERSION = '2.3.0';
 const CHANGELOG = [
+  { v: '2.3.0', date: '2026-09-20', notes: 'Added an AED / USD display toggle in the header (fixed rate 1 USD = 3.67 AED). All figures are still entered and stored in AED — the toggle only changes how amounts are displayed across the dashboard and the printable weekly report; your choice is remembered on this device' },
   { v: '2.2.0', date: '2026-09-20', notes: '"Showroom & warehouse relocation" renamed to "Cost Optimizing Targets" and extended with a 4th line item, Salaries, alongside Dubai showroom / Abu Dhabi showroom / Warehouse. Each item now shows a computed % optimized (current cost → target cost) in green, plus a lump-sum total row across all 4 — on both the entry form (with a new summary-card row) and the printable weekly report, which also gets a new "Cost Optimized (lump sum)" hero KPI' },
   { v: '2.1.1', date: '2026-09-20', notes: 'Reworked the v2.1.0 Other Expenses tab into a 5th column ("Other expenses") right next to Onboarding cost in the Total Cost (Annual) monthly ledger, instead of a separate tab — one row per month covers everything now. Removed the redundant "Monthly ledger subtotal" card from the Total Cost (Annual) dashboard (any old Other Expenses tab data is migrated into the new column automatically on first save)' },
   { v: '2.1.0', date: '2026-09-20', notes: 'Total Cost (Annual) tab: the monthly cost ledger gets a 4th column, Onboarding cost, alongside salaries/marketing/rent; added a new Other Expenses tab for ad-hoc, dated one-off costs (same add/remove-row pattern) that also roll into Total cost (annual) and the FY Gap' },
@@ -644,7 +666,11 @@ async function launchApp() {
 // JS Date.getMonth() values — Jan=0 ... Dec=11). No +1 here, on purpose.
 function monthKey(d) { return d.getFullYear() + '-' + d.getMonth(); }
 function fmtMonth(d) { return d.toLocaleString('en-GB', { month: 'long', year: 'numeric' }); }
-function fmtAED(n) { n = Number(n) || 0; return 'AED ' + Math.round(n).toLocaleString('en-US'); }
+function fmtAED(n) {
+  n = Number(n) || 0;
+  if (displayCurrency === 'USD') return 'USD ' + Math.round(n / USD_RATE).toLocaleString('en-US');
+  return 'AED ' + Math.round(n).toLocaleString('en-US');
+}
 function pct(n) { return (Number(n) || 0).toFixed(0) + '%'; }
 function monthsOfFY(uptoDate) {
   const out = []; const y = uptoDate.getFullYear();
@@ -1780,6 +1806,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 });
 
 applyVersionTags();
+document.querySelectorAll('.currency-btn').forEach(b => b.classList.toggle('active', b.dataset.cur === displayCurrency));
 initOneDrive();
 </script>
 </body>
