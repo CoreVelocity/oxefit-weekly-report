@@ -99,6 +99,23 @@ main{padding:22px;max-width:1180px;width:100%;margin:0 auto;}
 .hero-kpi .val{font-size:19px;font-weight:800;margin-top:3px;color:#fff;}
 .hero-kpi .foot{font-size:11px;color:var(--muted);margin-top:2px;}
 
+/* Donut/pie charts — used in the report's executive summary (target vs.
+   achieved, cost distribution) and again under Finance (cost distribution
+   in more detail). One shared markup shape: an SVG ring + a legend list. */
+.hero-charts{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:14px;position:relative;}
+@media(max-width:700px){.hero-charts{grid-template-columns:1fr;}}
+.chart-card{background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.12);border-radius:11px;padding:14px 16px;}
+.chart-card h3{font-size:12.5px;margin:0 0 10px;color:#fff;}
+.rcard.chart-card h3, .card.chart-card h3{color:var(--text);}
+.chart-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+.chart-row svg{flex:none;}
+.chart-legend{display:flex;flex-direction:column;gap:7px;font-size:12px;min-width:150px;flex:1;}
+.chart-legend .legend-row{display:flex;align-items:center;gap:8px;}
+.chart-legend .swatch{width:10px;height:10px;border-radius:2px;flex:none;}
+.chart-legend .legend-label{color:inherit;}
+.chart-legend .legend-val{color:var(--muted);margin-left:auto;white-space:nowrap;font-size:11.5px;}
+.chart-empty{color:var(--muted);font-size:12px;padding:8px 0;}
+
 .rsec{margin:0 0 32px;}
 .rsec-head{display:flex;align-items:baseline;gap:10px;margin-bottom:14px;padding-bottom:9px;border-bottom:1px solid var(--line);}
 .rsec-head .letter{background:linear-gradient(135deg,var(--hyper),var(--blue));color:#fff;width:25px;height:25px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:800;flex:none;}
@@ -137,12 +154,24 @@ footer.foot{padding:24px;text-align:center;color:var(--muted);font-size:11.5px;}
 /* Print / report export — only the Weekly Report tab's content prints,
    regardless of which tab is active on screen. */
 @media print{
+  /* Force the browser to actually paint the colors below instead of
+     stripping/adjusting them for "print-friendly" output — without this,
+     some browsers' print/PDF pipeline can drop foreground text colors
+     (not just backgrounds), which is what made the report title vanish
+     on export even though it renders fine on screen. */
+  *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;color-adjust:exact !important;}
   header.top, nav.tabs, .no-print{display:none !important;}
   main{max-width:100%;padding:0;}
   body{background:#fff;color:#111;}
   .card, .rcard, .rtable-wrap, .hero-kpi, .income-banner{background:#fff;border:1px solid #ccc;}
-  .report-hero{background:#fff;border:1px solid #ccc;}
+  .report-hero{background:#fff;border:1px solid #ccc;overflow:visible;page-break-inside:avoid;break-inside:avoid;}
+  .report-hero::after{display:none !important;}
   .report-hero *, .rcard *{color:#111 !important;}
+  /* Belt-and-suspenders: the wildcard rule above should already cover
+     these, but the title/eyebrow line is the one Ahmed reported missing
+     from the exported PDF, so it gets its own explicit, high-specificity
+     rule too rather than relying only on the descendant wildcard. */
+  .report-hero .eyebrow, .report-hero h1, .report-hero .meta-line, .income-banner .lbl, .income-banner .val, .income-banner .sub{color:#111 !important;}
   /* Negative/positive figures still need to read as red/green on a
      printed or exported PDF, not just on screen — override the blanket
      black-text rule above specifically for elements using those two
@@ -151,6 +180,16 @@ footer.foot{padding:24px;text-align:center;color:var(--muted);font-size:11.5px;}
      resolved value). */
   .report-hero [style*="--bad"], .rcard [style*="--bad"]{color:#c0392b !important;}
   .report-hero [style*="--ok"], .rcard [style*="--ok"]{color:#1e8449 !important;}
+  /* Donut charts: CSS `color` doesn't touch SVG text (it uses `fill`), so
+     the wildcard rule above misses it — force the center labels dark
+     explicitly. The colored ring segments themselves keep their actual
+     categorical/status colors (that's the whole point of the chart); only
+     the pale on-screen "empty/remaining" track is swapped for a visible
+     light gray so it doesn't vanish into the white page. */
+  .chart-card{background:#fff;border:1px solid #ccc;}
+  svg text{fill:#111 !important;}
+  svg circle[stroke="rgba(255,255,255,.10)"]{stroke:#e2e2e2 !important;}
+  .chart-legend .swatch[style*="rgba(255,255,255,.25)"]{background:#ccc !important;}
   .tabpane{display:none !important;}
   #tab-report{display:block !important;}
 }
@@ -430,8 +469,9 @@ function isAuthorizedUser(account) {
    (shown on the sign-in screen, the access-denied screen, and the app
    header — see applyVersionTags()).
 ════════════════════════════════════════════════════════════════════ */
-const APP_VERSION = '2.7.0';
+const APP_VERSION = '2.8.0';
 const CHANGELOG = [
+  { v: '2.8.0', date: '2026-09-20', notes: 'Added two donut charts to the Weekly Report\'s executive summary: FY Target vs. Achieved (a progress ring, green once the target is met) and Total Cost Distribution (this month) across Salaries / Showroom rent / Warehouse rent / Marketing, each with a legend and percentages; the same cost-distribution chart is repeated under Finance — cost vs. income for a closer look. Also hardened print/PDF export: forced print-color-adjust so foreground text colors can\'t be silently dropped by the browser\'s print pipeline (this was very likely why the report title went missing on export), removed a decorative background overlay that only exists on screen, and stopped the hero section from splitting across a page break' },
   { v: '2.7.0', date: '2026-09-20', notes: 'Weekly Report dashboard reworked: "Paid to OxeFit (FY)" is now "Orders to OxeFit (FY)" — the full value of every deal closed this FY, paid or still outstanding (was paid-only before), and the Finance Gap (FY) is now Orders to OxeFit (FY) minus Total cost (annual) to match; "Leads This Month" relabeled "Marketing Leads Generated (this month)"; added a new full-width "Income to OxeFit (all-time)" banner above the report title, spanning the whole hero section; any negative figure (Finance Gap, cost-optimizing %) now shows in red both on screen and in the printed/exported PDF (previously the print stylesheet flattened all report colors to black); the Total Cost (Annual) tab and report section\'s "Income to OxeFit (FY-to-date)" card is likewise now "Orders to OxeFit (FY)"; Marketing leads this month\'s per-stage cards now lay out in a single row instead of wrapping' },
   { v: '2.6.0', date: '2026-09-20', notes: 'Removed the "Cost reduction · achieved / target" card from the printable report\'s FY target progress section — it\'s already shown as the "Cost Optimizing Target (going forward)" hero KPI above it. Added a "Show only active" filter checkbox to Employee status, achievements & closures, on both the Employees tab and the printable report table; a save with the filter on no longer drops notes for hidden (non-active) employees' },
   { v: '2.5.0', date: '2026-09-20', notes: 'Removed the "first draft, sanity-check the AUTO figures" guidance note from the top of the Weekly Report. Reworked the report\'s hero KPI row into 8 boxes in a fixed order: Target Set (FY), FY Achieved, This Month Achieved, Paid to OxeFit (FY), Units Closed (FY), Leads This Month, Finance Gap (FY), Cost Optimizing Target (going forward)' },
@@ -1242,6 +1282,98 @@ function cardHtml(title, big, sub, tag) {
   return `<div class="card"><h3>${title}${tag ? `<span class="${tag==='AUTO'?'auto-tag':'manual-tag'}">${tag}</span>` : ''}</h3><div class="big">${big}</div><div class="sub">${sub||''}</div></div>`;
 }
 
+/* ════════════════════════════════════════════════════════════════════
+   DONUT/PIE CHARTS — plain inline SVG, no chart library. Two uses:
+   1. a 2-segment progress ring (target vs. achieved) — same idea as a
+      meter, drawn as a ring so it reads as "a pie chart" per Ahmed's ask
+   2. a categorical cost-distribution donut (Salaries / Showroom rent /
+      Warehouse rent / Marketing), fixed color order, never re-cycled.
+════════════════════════════════════════════════════════════════════ */
+// Fixed categorical order for the cost-distribution chart — never
+// reassigned per render, so "Salaries" is always the same color whether
+// it's the biggest or smallest slice this week.
+const COST_DIST_COLORS = { salaries: '#3987e5', showroom: '#d95926', warehouse: '#199e70', marketing: '#c98500' };
+
+// segments: [{label, value, color}]. Draws a ring (not a filled wedge) so
+// a thin 2px surface gap between segments is just a small unfilled arc,
+// and an optional center label can sit in the hole (used for the
+// target-vs-achieved ring's "62%").
+function donutChartSVG(segments, opts) {
+  opts = opts || {};
+  const size = opts.size || 132, stroke = opts.stroke || 20;
+  const r = (size - stroke) / 2, C = 2 * Math.PI * r;
+  const gap = segments.length > 1 ? 3 : 0;
+  const total = segments.reduce((s, x) => s + (Number(x.value) || 0), 0);
+  let cum = 0;
+  const arcs = total > 0 ? segments.filter(s => (Number(s.value) || 0) > 0).map(seg => {
+    const val = Number(seg.value) || 0;
+    const full = (val / total) * C;
+    const visible = Math.max(full - gap, 0.001);
+    const offset = -(cum + gap / 2);
+    cum += full;
+    const pct = (val / total * 100);
+    return `<circle r="${r}" cx="${size/2}" cy="${size/2}" fill="none" stroke="${seg.color}" stroke-width="${stroke}" stroke-dasharray="${visible} ${(C - visible).toFixed(2)}" stroke-dashoffset="${offset.toFixed(2)}" transform="rotate(-90 ${size/2} ${size/2})"><title>${seg.label}: ${fmtAED(val)} (${pct.toFixed(0)}%)</title></circle>`;
+  }).join('') : '';
+  const centerLine1 = opts.centerLabel != null ? `<text x="50%" y="50%" dy="${opts.centerSub ? -2 : 6}" text-anchor="middle" font-size="${opts.centerFontSize || 22}" font-weight="800" fill="${opts.centerColor || '#fff'}">${opts.centerLabel}</text>` : '';
+  const centerLine2 = opts.centerSub ? `<text x="50%" y="50%" dy="16" text-anchor="middle" font-size="9" fill="var(--muted)">${opts.centerSub}</text>` : '';
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" role="img" aria-label="${opts.ariaLabel || 'chart'}">
+    <circle r="${r}" cx="${size/2}" cy="${size/2}" fill="none" stroke="rgba(255,255,255,.10)" stroke-width="${stroke}"/>
+    ${arcs}
+    ${centerLine1}${centerLine2}
+  </svg>`;
+}
+
+function chartLegendHTML(segments) {
+  const total = segments.reduce((s, x) => s + (Number(x.value) || 0), 0);
+  return `<div class="chart-legend">` + segments.map(seg => {
+    const val = Number(seg.value) || 0;
+    const p = total > 0 ? (val / total * 100) : 0;
+    return `<div class="legend-row"><span class="swatch" style="background:${seg.color}"></span><span class="legend-label">${seg.label}</span><span class="legend-val">${fmtAED(val)} · ${p.toFixed(0)}%</span></div>`;
+  }).join('') + `</div>`;
+}
+
+function chartCardHTML(title, innerHtml, note) {
+  return `<div class="card chart-card"><h3>${title}</h3>${innerHtml}${note ? `<div class="sub" style="margin-top:8px;">${note}</div>` : ''}</div>`;
+}
+
+// Target-vs-achieved progress ring. Green once the target is fully met or
+// exceeded, brand blue while still in progress; the untouched portion of
+// the ring is a plain neutral track, not a second "series" color.
+function targetProgressChartHTML(target, achieved, title, note) {
+  if (!(target > 0)) {
+    return chartCardHTML(title, `<div class="chart-empty">No target set yet — enter a growth % on the Targets tab.</div>`);
+  }
+  const pct = Math.min(100, achieved / target * 100);
+  const met = achieved >= target;
+  const color = met ? 'var(--ok)' : 'var(--blue)';
+  const segments = [
+    { label: 'Achieved', value: Math.min(achieved, target), color },
+    { label: 'Remaining to target', value: Math.max(target - achieved, 0), color: 'rgba(255,255,255,.10)' }
+  ];
+  const svg = donutChartSVG(segments, { centerLabel: pct.toFixed(0) + '%', centerColor: met ? 'var(--ok)' : '#fff', centerSub: 'of target', ariaLabel: 'FY target progress' });
+  return chartCardHTML(title, `<div class="chart-row">${svg}<div class="chart-legend">
+      <div class="legend-row"><span class="swatch" style="background:${color}"></span><span class="legend-label">Achieved</span><span class="legend-val">${fmtAED(achieved)}</span></div>
+      <div class="legend-row"><span class="swatch" style="background:rgba(255,255,255,.25)"></span><span class="legend-label">Target</span><span class="legend-val">${fmtAED(target)}</span></div>
+    </div></div>`, note);
+}
+
+// Cost-distribution donut — reused as-is in both the executive summary
+// and the Finance section, so the two always agree.
+function costDistributionChartHTML(financeC, title, note) {
+  const segments = [
+    { label: 'Salaries', value: financeC.salaries, color: COST_DIST_COLORS.salaries },
+    { label: 'Showroom rent', value: financeC.rentShowroom.cost, color: COST_DIST_COLORS.showroom },
+    { label: 'Warehouse rent', value: financeC.rentWarehouse.cost, color: COST_DIST_COLORS.warehouse },
+    { label: 'Marketing', value: financeC.marketing, color: COST_DIST_COLORS.marketing }
+  ];
+  if (!(financeC.totalCost > 0)) {
+    return chartCardHTML(title, `<div class="chart-empty">No cost entered for this month yet.</div>`);
+  }
+  const centerNum = fmtAED(financeC.totalCost).replace(/^(AED|USD)\s*/, '');
+  const svg = donutChartSVG(segments, { centerLabel: centerNum, centerFontSize: centerNum.length > 7 ? 12 : 14, centerSub: displayCurrency + ' total', ariaLabel: 'Cost distribution' });
+  return chartCardHTML(title, `<div class="chart-row">${svg}${chartLegendHTML(segments)}</div>`, note);
+}
+
 function renderSales() {
   const c = computed;
   document.getElementById('salesCards').innerHTML = [
@@ -1638,6 +1770,10 @@ function renderReport() {
         ${heroKpi('Finance Gap (FY)', (c.financeC.gapFY>=0?'+':'') + fmtAED(c.financeC.gapFY), 'Orders to OxeFit (FY) − Total cost (annual)', c.financeC.gapFY>=0?'var(--ok)':'var(--bad)')}
         ${heroKpi('Cost Optimizing Target (going forward)', c.costOptTotalPct==null?'—':(c.costOptTotalPct>=0?'+':'')+c.costOptTotalPct.toFixed(0)+'%', fmtAED(c.costOptTotals.current) + ' → ' + fmtAED(c.costOptTotals.target), c.costOptTotalPct==null?'var(--muted)':(c.costOptTotalPct>=0?'var(--ok)':'var(--bad)'))}
       </div>
+      <div class="hero-charts">
+        ${targetProgressChartHTML(c.targetsE.fyTarget, c.targetsE.fyAchieved, 'FY Target vs. Achieved')}
+        ${costDistributionChartHTML(c.financeC, 'Total Cost Distribution (this month)')}
+      </div>
     </div>
 
     <div class="rsec">
@@ -1671,6 +1807,9 @@ function renderReport() {
       <div class="grid cols-2" style="margin-top:12px;">
         ${cardHtml('Total cost (this month)', fmtAED(c.financeC.totalCost), 'Salaries + rent + marketing, this month only')}
         ${cardHtml('Income to OxeFit (all-time)', fmtAED(c.financeC.incomeOxefit), (c.financeC.incomeOxefitManual != null ? 'Manual override' : 'Paid to OxeFit · Finance') + ' · since day 0, not month-scoped')}
+      </div>
+      <div class="grid" style="grid-template-columns:1fr;margin-top:12px;">
+        ${costDistributionChartHTML(c.financeC, 'Where this month\'s cost is going', 'Same breakdown shown in the executive summary above')}
       </div>
       <div class="rsec-head" style="margin-top:18px;"><h2 style="font-size:15px;">Annual (fiscal-year-to-date)</h2></div>
       <div class="grid cols-3">
