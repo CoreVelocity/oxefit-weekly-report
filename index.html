@@ -298,6 +298,7 @@ footer.foot{padding:24px;text-align:center;color:var(--muted);font-size:11.5px;}
       <div class="section">
         <h2><span class="letter">g</span> Employee status, achievements &amp; closures <span class="auto-tag">AUTO + </span><span class="manual-tag">MANUAL notes</span></h2>
         <p class="hint">Status/role from HR, deals closed this month derived from the sales tracker. Add a one-line achievement note per person — it's saved for next week too.</p>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);margin-bottom:10px;"><input type="checkbox" class="active-emp-filter" style="width:auto;" onchange="toggleActiveEmployeesFilter(this.checked)"> Show only active</label>
         <div id="teamList"></div>
         <button class="btn primary small" onclick="saveManualInputs()">Save notes</button>
       </div>
@@ -371,6 +372,17 @@ const CENTRAL_DEFAULTS = { marketing: 32000 };
 const USD_RATE = 3.67; // 1 USD = 3.67 AED
 let displayCurrency = 'AED';
 try { displayCurrency = localStorage.getItem('oxefitDisplayCurrency') || 'AED'; } catch (e) {}
+
+// Employee status & closures — "show only active" filter (runtime display
+// preference only, not saved to the shared file; defaults to showing
+// everyone, same as before this existed).
+let showOnlyActiveEmployees = false;
+function toggleActiveEmployeesFilter(checked) {
+  showOnlyActiveEmployees = !!checked;
+  document.querySelectorAll('.active-emp-filter').forEach(cb => { cb.checked = showOnlyActiveEmployees; });
+  renderTeam();
+  renderReport();
+}
 function setDisplayCurrency(cur) {
   displayCurrency = (cur === 'USD') ? 'USD' : 'AED';
   try { localStorage.setItem('oxefitDisplayCurrency', displayCurrency); } catch (e) {}
@@ -404,8 +416,9 @@ function isAuthorizedUser(account) {
    (shown on the sign-in screen, the access-denied screen, and the app
    header — see applyVersionTags()).
 ════════════════════════════════════════════════════════════════════ */
-const APP_VERSION = '2.5.0';
+const APP_VERSION = '2.6.0';
 const CHANGELOG = [
+  { v: '2.6.0', date: '2026-09-20', notes: 'Removed the "Cost reduction · achieved / target" card from the printable report\'s FY target progress section — it\'s already shown as the "Cost Optimizing Target (going forward)" hero KPI above it. Added a "Show only active" filter checkbox to Employee status, achievements & closures, on both the Employees tab and the printable report table; a save with the filter on no longer drops notes for hidden (non-active) employees' },
   { v: '2.5.0', date: '2026-09-20', notes: 'Removed the "first draft, sanity-check the AUTO figures" guidance note from the top of the Weekly Report. Reworked the report\'s hero KPI row into 8 boxes in a fixed order: Target Set (FY), FY Achieved, This Month Achieved, Paid to OxeFit (FY), Units Closed (FY), Leads This Month, Finance Gap (FY), Cost Optimizing Target (going forward)' },
   { v: '2.4.0', date: '2026-09-20', notes: '"FY target progress" reworked: FY sales target is now AUTO — last calendar year\'s full closedWon total × (1 + a growth % you enter), replacing the old sum-of-rep-goals figure; a new "Last year closed" card shows the base figure it grows from. Cost reduction vs target is now also AUTO, pulled straight from the Cost Optimizing Targets lump sum (section d) instead of two separate manual fields — target = current cost minus target cost across all 4 items, achieved = that reduction weighted by each item\'s own % complete' },
   { v: '2.3.0', date: '2026-09-20', notes: 'Added an AED / USD display toggle in the header (fixed rate 1 USD = 3.67 AED). All figures are still entered and stored in AED — the toggle only changes how amounts are displayed across the dashboard and the printable weekly report; your choice is remembered on this device' },
@@ -1545,7 +1558,8 @@ function renderLeads() {
 }
 
 function renderTeam() {
-  document.getElementById('teamList').innerHTML = computed.teamG.map(e => `
+  const list = showOnlyActiveEmployees ? computed.teamG.filter(e => e.status === 'Active') : computed.teamG;
+  document.getElementById('teamList').innerHTML = list.map(e => `
     <div class="emp-card">
       <div class="row1">
         <div><span class="name">${e.name}</span> <span class="meta">${e.designation||''} · ${e.region}</span></div>
@@ -1553,7 +1567,7 @@ function renderTeam() {
       </div>
       <div class="meta" style="margin:6px 0;">Deals closed this month: <b>${e.closuresThisMonth}</b></div>
       <textarea placeholder="Achievement / closure note this week…" id="note_${e.name.replace(/\s+/g,'_')}">${e.note}</textarea>
-    </div>`).join('');
+    </div>`).join('') || '<p class="hint">No active employees.</p>';
 }
 
 function renderHealth() {
@@ -1651,11 +1665,10 @@ function renderReport() {
 
     <div class="rsec">
       <div class="rsec-head"><span class="letter">e</span><h2>FY target progress</h2></div>
-      <div class="grid cols-4">
+      <div class="grid cols-3">
         ${cardHtml('Last year closed (' + (c.now.getFullYear() - 1) + ')', fmtAED(c.targetsE.lastYearAchieved), 'Full-year closedWon')}
         ${cardHtml('FY sales target', fmtAED(c.targetsE.fyTarget), c.targetsE.fyGrowthPct == null ? 'No growth % set' : (c.targetsE.fyGrowthPct>=0?'+':'') + c.targetsE.fyGrowthPct + '% over last year')}
         ${cardHtml('FY achieved', fmtAED(c.targetsE.fyAchieved), pct(c.targetsE.progressPct) + ' of target')}
-        ${cardHtml('Cost reduction · achieved / target', fmtAED(c.targetsE.costReductionAchieved) + ' / ' + fmtAED(c.targetsE.costReductionTarget), '')}
       </div>
       <div class="progress" style="margin-top:12px;"><div style="width:${Math.min(100, c.targetsE.progressPct)}%"></div></div>
     </div>
@@ -1668,10 +1681,12 @@ function renderReport() {
     </div>
 
     <div class="rsec">
-      <div class="rsec-head"><span class="letter">g</span><h2>Employee status &amp; closures</h2></div>
+      <div class="rsec-head"><span class="letter">g</span><h2>Employee status &amp; closures</h2>
+        <label class="no-print" style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);"><input type="checkbox" class="active-emp-filter" style="width:auto;" onchange="toggleActiveEmployeesFilter(this.checked)"> Show only active</label>
+      </div>
       <div class="rtable-wrap"><table>
         <tr><th>Name</th><th>Region</th><th>Status</th><th>Closed this month</th><th>Note</th></tr>
-        ${c.teamG.map(e=>`<tr><td>${e.name}</td><td>${e.region}</td><td><span class="badge ${e.status==='Active'?'ok':e.status==='Exited'?'bad':'warn'}">${e.status}</span></td><td>${e.closuresThisMonth}</td><td>${e.note||''}</td></tr>`).join('')}
+        ${(showOnlyActiveEmployees ? c.teamG.filter(e=>e.status==='Active') : c.teamG).map(e=>`<tr><td>${e.name}</td><td>${e.region}</td><td><span class="badge ${e.status==='Active'?'ok':e.status==='Exited'?'bad':'warn'}">${e.status}</span></td><td>${e.closuresThisMonth}</td><td>${e.note||''}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">No active employees</td></tr>'}
       </table></div>
     </div>
   `;
@@ -1763,7 +1778,11 @@ function collectManualInputs() {
   });
   manual.relocation = relocation;
 
-  const employeeNotes = {};
+  // Start from whatever notes are already saved, then overwrite with
+  // anything actually on screen. This preserves notes for employees
+  // currently hidden by the "Show only active" filter instead of wiping
+  // them out just because their textarea isn't in the DOM right now.
+  const employeeNotes = Object.assign({}, safeObj(manual.employeeNotes));
   (computed.teamG || []).forEach(e => {
     const el = document.getElementById('note_' + e.name.replace(/\s+/g,'_'));
     if (el) employeeNotes[e.name] = el.value;
