@@ -285,11 +285,11 @@ footer.foot{padding:24px;text-align:center;color:var(--muted);font-size:11.5px;}
     <div class="tabpane" id="tab-finance">
       <div class="section">
         <h2><span class="letter">c</span> Finance — cost vs. income (OxeFit)</h2>
-        <p class="hint">Everything on this tab is scoped to <b>this month only</b> — for the fiscal-year view (annual cost, FY-to-date income, and the FY gap), see the <b>Total Cost (Annual)</b> tab. <b>Salaries</b> = this month's "Due this month" total from HR's Monthly Salaries tab, not a flat sum of everyone's salary — a joiner or leaver only owes a prorated slice of the month (calendar days active ÷ days in month), and a joiner's one-time onboarding cost (visa + insurance) is added in their joining month only, matching HR exactly. <b>Showroom rent</b> and <b>Warehouse rent</b> are tracked separately below — each is agreed annually but due quarterly, so enter every quarter's due date + amount for the year up front (add a row per quarter); each one is automatically added to Total cost once it's within 30 days of its due date, and drops off once you tick "Paid" — no need to update anything by hand each quarter. Each property also has a one-time payment (from signing the lease) split into quarterly payment / security deposit / agent fees, which only counts toward a given month's cost if you tick "include" for it. Marketing budget still pulls from Finance's central cost pool. <b>Income to OxeFit</b> is AUTO — it's the same "Paid to OxeFit" figure from Finance's Payouts &amp; OxeFit tab (every closed deal's mapped device cost × the milestone schedule × what's actually been collected from the customer so far), so it should match Finance exactly without retyping it here each week — but note it's <b>all-time cumulative</b> (since day 0), not scoped to this month or this FY. The override field below is only for a week Finance hasn't synced yet — leave it blank to use the automatic figure.</p>
+        <p class="hint">Scoped to this month only — see <b>Total Cost (Annual)</b> for the fiscal-year view.</p>
         <div id="financeCards" class="grid cols-4"></div>
         <div id="rentForms" style="margin-top:14px;"></div>
         <div class="card" style="margin-top:14px;">
-          <h3>Manual override <span class="manual-tag">MANUAL</span></h3>
+          <h3>Manual override</h3>
           <div class="field-row">
             <div class="field"><label>Income to OxeFit override (AED) — leave blank to use Finance's auto figure</label><input type="number" id="mIncomeOxefit" step="1"></div>
             <div class="field"><label>Notes on this week's finance figures</label><input type="text" id="mFinanceNote" style="min-width:280px;"></div>
@@ -303,7 +303,7 @@ footer.foot{padding:24px;text-align:center;color:var(--muted);font-size:11.5px;}
     <div class="tabpane" id="tab-annualcost">
       <div class="section">
         <h2>Total Cost (Annual) <span class="manual-tag">MANUAL</span></h2>
-        <p class="hint">This is the fiscal-year view — everything here is scoped to <b>January 1 of this year through today</b> (calendar-year FY), not just this month. <b>Total cost (annual)</b> is <b>not auto-computed</b>: add one row per month as it closes out, with what was actually paid for salaries, marketing, rent, onboarding cost, and any other/miscellaneous expenses that month, and they add up to a running annual total — the same add/remove-row pattern as the rent quarters on the Finance tab. <b>Orders to OxeFit (FY)</b> is AUTO — every order/deal closed within this fiscal year, whether OxeFit has been paid yet or it's still outstanding (the same Payouts &amp; OxeFit cost math as the Finance tab, just not limited to the paid portion), so it lines up with the annual cost figure above it. The all-time paid figure is shown too for reference. <b>Gap (FY)</b> = Orders to OxeFit (FY) − Total cost (annual) — this is the per-FY gap; the Finance tab's monthly cost isn't compared against it since the two aren't the same time window.</p>
+        <p class="hint">Fiscal-year view (Jan 1 through today) — add one row per month as it closes out.</p>
         <div id="annualCostCards" class="grid cols-4"></div>
         <div id="annualCostForms" style="margin-top:14px;"></div>
       </div>
@@ -324,8 +324,8 @@ footer.foot{padding:24px;text-align:center;color:var(--muted);font-size:11.5px;}
     <div class="tabpane" id="tab-targets">
       <div class="section">
         <h2><span class="letter">e</span> FY target progress <span class="auto-tag">AUTO</span></h2>
-        <p class="hint">FY sales target = last calendar year's full closedWon total × (1 + growth % you set below) — no more typing in a target by hand. Cost reduction vs target is pulled automatically from the Cost Optimizing Targets lump sum (section d): target = current cost − target cost across all 4 items; achieved = that same reduction, weighted by each item's own % complete.</p>
-        <div id="targetCards" class="grid cols-4"></div>
+        <p class="hint">FY sales target = last year's closedWon × (1 + growth % you set below).</p>
+        <div id="targetCards" class="grid cols-3"></div>
         <div class="card" style="margin-top:14px;">
           <h3>Growth target <span class="manual-tag">MANUAL</span></h3>
           <div class="field-row">
@@ -469,8 +469,9 @@ function isAuthorizedUser(account) {
    (shown on the sign-in screen, the access-denied screen, and the app
    header — see applyVersionTags()).
 ════════════════════════════════════════════════════════════════════ */
-const APP_VERSION = '2.8.0';
+const APP_VERSION = '2.9.0';
 const CHANGELOG = [
+  { v: '2.9.0', date: '2026-09-20', notes: 'Trimmed several long paragraph descriptions down to one line: Finance, Total Cost (Annual) and FY target progress tabs. Removed the yellow "Income to OxeFit above is all-time cumulative..." note from the Finance tab. Removed the redundant "MANUAL" badge next to the Finance tab\'s "Manual override" header. Removed the "Cost reduction vs target" card from the Targets tab (already shown as the Cost Optimizing Target hero KPI and on the Cost Optimizing Targets tab). Removed the Owner column from the Marketing Leads table' },
   { v: '2.8.0', date: '2026-09-20', notes: 'Added two donut charts to the Weekly Report\'s executive summary: FY Target vs. Achieved (a progress ring, green once the target is met) and Total Cost Distribution (this month) across Salaries / Showroom rent / Warehouse rent / Marketing, each with a legend and percentages; the same cost-distribution chart is repeated under Finance — cost vs. income for a closer look. Also hardened print/PDF export: forced print-color-adjust so foreground text colors can\'t be silently dropped by the browser\'s print pipeline (this was very likely why the report title went missing on export), removed a decorative background overlay that only exists on screen, and stopped the hero section from splitting across a page break' },
   { v: '2.7.0', date: '2026-09-20', notes: 'Weekly Report dashboard reworked: "Paid to OxeFit (FY)" is now "Orders to OxeFit (FY)" — the full value of every deal closed this FY, paid or still outstanding (was paid-only before), and the Finance Gap (FY) is now Orders to OxeFit (FY) minus Total cost (annual) to match; "Leads This Month" relabeled "Marketing Leads Generated (this month)"; added a new full-width "Income to OxeFit (all-time)" banner above the report title, spanning the whole hero section; any negative figure (Finance Gap, cost-optimizing %) now shows in red both on screen and in the printed/exported PDF (previously the print stylesheet flattened all report colors to black); the Total Cost (Annual) tab and report section\'s "Income to OxeFit (FY-to-date)" card is likewise now "Orders to OxeFit (FY)"; Marketing leads this month\'s per-stage cards now lay out in a single row instead of wrapping' },
   { v: '2.6.0', date: '2026-09-20', notes: 'Removed the "Cost reduction · achieved / target" card from the printable report\'s FY target progress section — it\'s already shown as the "Cost Optimizing Target (going forward)" hero KPI above it. Added a "Show only active" filter checkbox to Employee status, achievements & closures, on both the Employees tab and the printable report table; a save with the filter on no longer drops notes for hidden (non-active) employees' },
@@ -1466,8 +1467,7 @@ function renderFinance() {
     cardHtml('Income to OxeFit (all-time)', fmtAED(c.incomeOxefit),
       incomeIsOverridden ? 'Manual override — auto figure is ' + fmtAED(c.incomeOxefitAuto) : 'Paid to OxeFit · Finance · since day 0 · ' + c.oxefitIncome.dealsWithCost + ' deal(s)',
       incomeIsOverridden ? 'MANUAL' : 'AUTO')
-  ].join('')
-    + `<div class="warnnote no-print" style="margin-top:12px;">Income to OxeFit above is <b>all-time cumulative</b> (every closed deal, since day 0) — it isn't scoped to this month, so it can't be compared directly against "Total cost (this month)" for a meaningful gap. See the <b>Total Cost (Annual)</b> tab for the FY-to-date income figure and a proper FY gap.</div>`;
+  ].join('');
 
   renderRentForms();
 
@@ -1696,8 +1696,7 @@ function renderTargets() {
   document.getElementById('targetCards').innerHTML = [
     cardHtml('Last year closed (' + (computed.now.getFullYear() - 1) + ')', fmtAED(t.lastYearAchieved), 'Full-year closedWon, sales tracker', 'AUTO'),
     cardHtml('FY sales target', fmtAED(t.fyTarget), (t.fyGrowthPct == null ? 'Enter a growth % →' : (t.fyGrowthPct>=0?'+':'') + t.fyGrowthPct + '% over last year'), 'AUTO'),
-    cardHtml('FY achieved', fmtAED(t.fyAchieved), pct(t.progressPct) + ' of target', 'AUTO'),
-    cardHtml('Cost reduction vs target', fmtAED(t.costReductionAchieved) + ' / ' + fmtAED(t.costReductionTarget), t.costReductionTarget>0?pct(t.costReductionAchieved/t.costReductionTarget*100)+' of target':'No cost optimizing targets entered', 'AUTO')
+    cardHtml('FY achieved', fmtAED(t.fyAchieved), pct(t.progressPct) + ' of target', 'AUTO')
   ].join('');
   document.getElementById('mFyGrowthPct').value = t.fyGrowthPct == null ? '' : t.fyGrowthPct;
 }
@@ -1706,8 +1705,8 @@ function renderLeads() {
   const l = computed.leadsF;
   const stageCards = Object.keys(l.byStage).map(st => cardHtml(st, l.byStage[st], 'leads')).join('');
   document.getElementById('leadsCards').innerHTML = cardHtml('Total leads this month', l.total, fmtMonth(computed.now), 'AUTO') + stageCards;
-  document.getElementById('leadsTable').innerHTML = `<tr><th>Name</th><th>Company</th><th>Stage</th><th>Source</th><th>Owner</th></tr>` +
-    l.list.map(x => `<tr><td>${x.name||''}</td><td>${x.company||''}</td><td><span class="badge muted">${x.stage||''}</span></td><td>${x.source||''}</td><td>${x.owner||x.assignee||''}</td></tr>`).join('');
+  document.getElementById('leadsTable').innerHTML = `<tr><th>Name</th><th>Company</th><th>Stage</th><th>Source</th></tr>` +
+    l.list.map(x => `<tr><td>${x.name||''}</td><td>${x.company||''}</td><td><span class="badge muted">${x.stage||''}</span></td><td>${x.source||''}</td></tr>`).join('');
 }
 
 function renderTeam() {
