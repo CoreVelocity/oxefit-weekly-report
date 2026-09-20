@@ -151,6 +151,13 @@ tr:hover td{background:rgba(255,255,255,.02);}
 pre.raw{max-height:260px;overflow:auto;background:#050A1C;border:1px solid var(--line);border-radius:8px;padding:10px;font-size:11px;color:#9fb4e8;}
 footer.foot{padding:24px;text-align:center;color:var(--muted);font-size:11.5px;}
 
+/* Force portrait A4 as the default paper/orientation for this document —
+   without this, some browsers fall back to whatever orientation was last
+   picked in the print dialog, and a wide table (see below) can nudge that
+   toward landscape. Margins are trimmed a bit from a browser's usual
+   default so more content fits per page. */
+@page{ size: A4 portrait; margin: 12mm 10mm; }
+
 /* Print / report export — only the Weekly Report tab's content prints,
    regardless of which tab is active on screen, and it keeps the same dark
    navy theme + colors shown on screen rather than switching to a plain
@@ -164,11 +171,28 @@ footer.foot{padding:24px;text-align:center;color:var(--muted);font-size:11.5px;}
   *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;color-adjust:exact !important;}
   header.top, nav.tabs, .no-print{display:none !important;}
   main{max-width:100%;padding:0;}
-  html, body{background:var(--bg) !important;}
+  html, body{background:var(--bg) !important;font-size:12px;}
   /* Keep sections/cards from splitting awkwardly across a page break —
      everything else (backgrounds, borders, text/badge colors, chart
      colors) is left exactly as it renders on screen. */
   .report-hero, .card, .rcard, .rtable-wrap, .hero-kpi, .income-banner, .chart-card{page-break-inside:avoid;break-inside:avoid;}
+  /* Never let a section's heading print as the last line on a page with
+     its table/cards pushed to the next one — force the heading to move
+     down onto the same page as (at least the start of) its content. */
+  .rsec-head, .rsec-head h2{page-break-after:avoid;break-after:avoid;}
+  /* Tighten up table density so the widest report table (Cost Optimizing
+     Targets, 7 columns) comfortably fits a portrait page instead of
+     needing landscape or getting clipped. Card/heading text is trimmed to
+     match so proportions still look right next to the smaller tables. */
+  table{font-size:10.5px;}
+  .rtable-wrap th, .rtable-wrap td{padding:6px 8px;}
+  .card{padding:10px 12px;}
+  .card .big{font-size:17px;}
+  .hero-kpi{padding:9px 10px;}
+  .hero-kpi .val{font-size:16px;}
+  .rsec-head h2{font-size:13.5px;}
+  .report-hero h1{font-size:19px;}
+  .report-hero{padding:18px 20px;}
   /* The hero's decorative radial-glow overlay is screen-only flourish;
      hiding it on export avoids any risk of it interfering with the title
      text sitting underneath it. */
@@ -452,8 +476,9 @@ function isAuthorizedUser(account) {
    (shown on the sign-in screen, the access-denied screen, and the app
    header — see applyVersionTags()).
 ════════════════════════════════════════════════════════════════════ */
-const APP_VERSION = '2.11.0';
+const APP_VERSION = '2.12.0';
 const CHANGELOG = [
+  { v: '2.12.0', date: '2026-09-20', notes: 'PDF/print export now defaults to A4 portrait (was drifting to landscape because the widest report table didn\'t fit portrait width) — tightened table/card padding and font sizes so everything fits without landscape. Section headings can no longer get stranded at the bottom of a page with their table pushed to the next one — a heading now always moves down onto the same page as its content' },
   { v: '2.11.0', date: '2026-09-20', notes: 'PDF/print export now keeps the same dark navy theme and colors shown on screen instead of switching to a plain white/black "print-friendly" look — cards, the hero banner, badges, and the donut charts all export in their real colors' },
   { v: '2.10.0', date: '2026-09-20', notes: 'Removed the duplicate cost-distribution donut chart under Finance — cost vs. income in the Weekly Report (kept the one in the executive summary). Fixed the Employee status & closures table (report + Team tab) showing the same person twice under a short roster name and their full HR name (e.g. "Fatima" / "Fatima Wardani", "Wafiq" / "Wafiq Adel Ismail Mohamed Yahia") — these are now merged into a single row using the HR record\'s status/region and combined closure count' },
   { v: '2.9.0', date: '2026-09-20', notes: 'Trimmed several long paragraph descriptions down to one line: Finance, Total Cost (Annual) and FY target progress tabs. Removed the yellow "Income to OxeFit above is all-time cumulative..." note from the Finance tab. Removed the redundant "MANUAL" badge next to the Finance tab\'s "Manual override" header. Removed the "Cost reduction vs target" card from the Targets tab (already shown as the Cost Optimizing Target hero KPI and on the Cost Optimizing Targets tab). Removed the Owner column from the Marketing Leads table' },
