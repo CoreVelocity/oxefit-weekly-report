@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -225,7 +224,7 @@ footer.foot{padding:24px;text-align:center;color:var(--muted);font-size:11.5px;}
     <div class="tabpane" id="tab-finance">
       <div class="section">
         <h2><span class="letter">c</span> Finance — cost vs. income (OxeFit)</h2>
-        <p class="hint"><b>Salaries</b> = this month's "Due this month" total from HR's Monthly Salaries tab, not a flat sum of everyone's salary — a joiner or leaver only owes a prorated slice of the month (calendar days active ÷ days in month), and a joiner's one-time onboarding cost (visa + insurance) is added in their joining month only, matching HR exactly. <b>Showroom rent</b> and <b>Warehouse rent</b> are tracked separately and entered by hand below — each is agreed annually but due quarterly, so update the amount due and its due date whenever a new quarter comes up; each also has a one-time payment (from signing the lease) split into quarterly payment / security deposit / agent fees, which only counts toward a given month's cost if you tick "include" for it. Marketing budget still pulls from Finance's central cost pool. <b>Income to OxeFit</b> is AUTO — it's the same "Paid to OxeFit" figure from Finance's Payouts &amp; OxeFit tab (every closed deal's mapped device cost × the milestone schedule × what's actually been collected from the customer so far), so it should match Finance exactly without retyping it here each week. The override field below is only for a week Finance hasn't synced yet — leave it blank to use the automatic figure.</p>
+        <p class="hint"><b>Salaries</b> = this month's "Due this month" total from HR's Monthly Salaries tab, not a flat sum of everyone's salary — a joiner or leaver only owes a prorated slice of the month (calendar days active ÷ days in month), and a joiner's one-time onboarding cost (visa + insurance) is added in their joining month only, matching HR exactly. <b>Showroom rent</b> and <b>Warehouse rent</b> are tracked separately below — each is agreed annually but due quarterly, so enter every quarter's due date + amount for the year up front (add a row per quarter); each one is automatically added to Total cost once it's within 30 days of its due date, and drops off once you tick "Paid" — no need to update anything by hand each quarter. Each property also has a one-time payment (from signing the lease) split into quarterly payment / security deposit / agent fees, which only counts toward a given month's cost if you tick "include" for it. Marketing budget still pulls from Finance's central cost pool. <b>Income to OxeFit</b> is AUTO — it's the same "Paid to OxeFit" figure from Finance's Payouts &amp; OxeFit tab (every closed deal's mapped device cost × the milestone schedule × what's actually been collected from the customer so far), so it should match Finance exactly without retyping it here each week. The override field below is only for a week Finance hasn't synced yet — leave it blank to use the automatic figure.</p>
         <div id="financeCards" class="grid cols-4"></div>
         <div id="rentForms" style="margin-top:14px;"></div>
         <div class="card" style="margin-top:14px;">
@@ -368,8 +367,9 @@ function isAuthorizedUser(account) {
    (shown on the sign-in screen, the access-denied screen, and the app
    header — see applyVersionTags()).
 ════════════════════════════════════════════════════════════════════ */
-const APP_VERSION = '1.8.0';
+const APP_VERSION = '1.9.0';
 const CHANGELOG = [
+  { v: '1.9.0', date: '2026-09-20', notes: 'Rent quarters are now a list you enter ahead of time (due date + amount, add as many as you like — e.g. all 4 for the year) instead of one field to update each quarter; each quarter is pulled into Total cost automatically once it\'s within 30 days of its due date, and drops off once ticked "Paid" — no manual toggling required' },
   { v: '1.8.0', date: '2026-09-20', notes: '"Showroom + warehouse rent" split into two separate, manually-entered line items (rent is agreed annually but due quarterly — enter this quarter\'s amount + due date whenever it changes); each also gets a one-time-payment breakdown (quarterly payment / security deposit / agent fees) with an opt-in toggle to include it in that month\'s total cost' },
   { v: '1.7.1', date: '2026-09-19', notes: 'Salaries fixed to match HR’s own "Due this month" total exactly (prorated for joiners/leavers by calendar days, plus onboarding cost in the joining month) instead of a flat sum of active employees’ monthly salary' },
   { v: '1.7.0', date: '2026-09-19', notes: 'Income to OxeFit is now AUTO — mirrors Finance’s Payouts & OxeFit "Paid to OxeFit" figure exactly (device-mapped cost x milestone schedule x collected %), with a manual override still available for weeks Finance hasn’t synced' },
@@ -584,6 +584,7 @@ async function refreshAll() {
   RAW.own = o.ok ? o.data : { manual: {}, snapshots: {} };
   const anyOk = s.ok || h.ok || f.ok || dl.ok;
   setSync(anyOk ? 'ok' : 'error', anyOk ? 'Synced ' + new Date().toLocaleTimeString() : 'Could not reach sources');
+  rentDraft = null; // drop any in-progress add/remove edits, this is a fresh load
   computeAll();
   renderAll();
 }
@@ -947,12 +948,32 @@ function computeAll() {
   // this, not a flat sum of active employees' monthly salary, is correct.
   const salaries = salariesDueForMonth(hr.employees, now.getFullYear(), now.getMonth());
   // Showroom/warehouse rent — no longer a single Finance-synced figure.
-  // Rent is agreed annually but due quarterly, so Ahmed enters and updates
-  // each property's current quarterly amount + due date by hand here. Each
-  // property can also carry a one-time payment (from signing the lease),
-  // broken into its 3 components (quarterly payment / security deposit /
-  // agent fees); that one-time total only counts toward this month's cost
-  // if explicitly included (it's a rare event, not a recurring cost).
+  // Rent is agreed annually but due quarterly, so Ahmed enters each
+  // quarter's due date + amount ahead of time (all 4 for the year in one
+  // go, if he likes) instead of updating a single field every quarter.
+  // A quarter only counts toward this month's Total cost once it's within
+  // 30 days of its due date — it then appears on the dashboard
+  // automatically, no manual toggling required — and drops off once it's
+  // ticked "paid". Each property can also carry a one-time payment (from
+  // signing the lease), broken into its 3 components (quarterly payment /
+  // security deposit / agent fees); that one-time total only counts
+  // toward this month's cost if explicitly included (it's a rare event,
+  // not a recurring cost).
+  const RENT_DUE_SOON_DAYS = 30;
+  function annotateQuarters(quarters) {
+    return safeArr(quarters)
+      .filter(q => q && q.dueDate)
+      .map(q => {
+        const due = hrDate(q.dueDate);
+        return {
+          dueDate: q.dueDate,
+          amount: (q.amount === '' || q.amount == null) ? 0 : Number(q.amount) || 0,
+          paid: !!q.paid,
+          daysUntilDue: due ? hrDaysBetween(now, due) : null // negative = overdue
+        };
+      })
+      .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  }
   function rentItem(key) {
     const r = safeObj(safeObj(manual.rent)[key]);
     const ot = safeObj(r.oneTime);
@@ -961,14 +982,17 @@ function computeAll() {
     const otAgent = Number(ot.agentFees) || 0;
     const oneTimeTotal = otQuarterly + otDeposit + otAgent;
     const includeOneTime = !!r.oneTimeIncluded;
-    const quarterAmount = Number(r.quarterAmount) || 0;
+    const quarters = annotateQuarters(r.quarters);
+    const unpaid = quarters.filter(q => !q.paid);
+    const activeQuarter = unpaid.length ? unpaid[0] : null; // earliest unpaid due date
+    const isDueSoon = !!(activeQuarter && activeQuarter.daysUntilDue != null && activeQuarter.daysUntilDue <= RENT_DUE_SOON_DAYS);
+    const dueAmount = isDueSoon ? activeQuarter.amount : 0;
     return {
       annual: Number(r.annual) || 0,
-      quarterAmount,
-      quarterDueDate: r.quarterDueDate || '',
+      quarters, activeQuarter, isDueSoon,
       oneTime: { quarterlyPayment: otQuarterly, securityDeposit: otDeposit, agentFees: otAgent },
       oneTimeTotal, includeOneTime,
-      cost: quarterAmount + (includeOneTime ? oneTimeTotal : 0)
+      cost: dueAmount + (includeOneTime ? oneTimeTotal : 0)
     };
   }
   const rentShowroom = rentItem('showroom');
@@ -1114,7 +1138,15 @@ function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'
 
 function rentCardSub(r) {
   const parts = [];
-  parts.push(r.quarterDueDate ? ('due ' + r.quarterDueDate) : 'no due date set');
+  if (!r.activeQuarter) {
+    parts.push('no upcoming quarter entered');
+  } else {
+    const d = r.activeQuarter.daysUntilDue;
+    const when = d == null ? '' : (d < 0 ? Math.abs(d) + 'd overdue' : d === 0 ? 'due today' : 'in ' + d + 'd');
+    parts.push(r.isDueSoon
+      ? ('due ' + r.activeQuarter.dueDate + ' · ' + when + ' — added to total')
+      : ('next due ' + r.activeQuarter.dueDate + ' · ' + when + ' — not yet added'));
+  }
   if (r.includeOneTime && r.oneTimeTotal) parts.push('+ ' + fmtAED(r.oneTimeTotal) + ' one-time');
   return parts.join(' · ');
 }
@@ -1145,22 +1177,89 @@ function renderFinance() {
   document.getElementById('mFinanceNote').value = manual.financeNote || '';
 }
 
+// Quarters are edited as a growable list of {dueDate, amount, paid} rows
+// per property. rentDraft holds in-progress add/remove edits so a row can
+// be added or removed without hitting OneDrive first — it's reset to null
+// (falling back to the last-saved/computed data) whenever a fresh dataset
+// is rendered. Reading it back out at Save time is what makes "enter all
+// 4 quarters for the year up front" possible in one sitting.
+let rentDraft = null;
+
+function currentRentQuarters(key) {
+  if (rentDraft && rentDraft[key]) return rentDraft[key];
+  const data = key === 'showroom' ? computed.financeC.rentShowroom : computed.financeC.rentWarehouse;
+  return (data && data.quarters) ? data.quarters.map(q => ({ dueDate: q.dueDate, amount: q.amount, paid: q.paid })) : [];
+}
+
+// Reads every rendered quarter row straight from the DOM (so in-progress
+// edits are never lost), keyed by property. Used both to carry state
+// across an add/remove click and as the final read at Save time.
+function collectRentDraftFromDOM() {
+  const draft = { showroom: [], warehouse: [] };
+  ['showroom', 'warehouse'].forEach(key => {
+    const idp = key === 'showroom' ? 'mRentShowroom' : 'mRentWarehouse';
+    const rows = currentRentQuarters(key);
+    rows.forEach((_, i) => {
+      const dateEl = document.getElementById(`${idp}Q_${i}_date`);
+      if (!dateEl) return;
+      const amtEl = document.getElementById(`${idp}Q_${i}_amount`);
+      const paidEl = document.getElementById(`${idp}Q_${i}_paid`);
+      draft[key].push({
+        dueDate: dateEl.value || '',
+        amount: (amtEl && amtEl.value !== '') ? Number(amtEl.value) : '',
+        paid: !!(paidEl && paidEl.checked)
+      });
+    });
+  });
+  return draft;
+}
+
+function addRentQuarter(key) {
+  const draft = collectRentDraftFromDOM();
+  draft[key].push({ dueDate: '', amount: '', paid: false });
+  rentDraft = draft;
+  renderRentForms();
+}
+
+function removeRentQuarter(key, idx) {
+  const draft = collectRentDraftFromDOM();
+  draft[key].splice(idx, 1);
+  rentDraft = draft;
+  renderRentForms();
+}
+
 function renderRentForms() {
   const props = [
     { key: 'showroom', idp: 'mRentShowroom', label: 'Showroom rent', data: computed.financeC.rentShowroom },
     { key: 'warehouse', idp: 'mRentWarehouse', label: 'Warehouse rent', data: computed.financeC.rentWarehouse }
   ];
   document.getElementById('rentForms').innerHTML = props.map(p => {
-    const r = p.data, idp = p.idp;
+    const r = p.data, idp = p.idp, key = p.key;
+    const rows = currentRentQuarters(key);
+    const quarterRows = rows.map((q, i) => {
+      const due = hrDate(q.dueDate);
+      const daysUntilDue = due ? hrDaysBetween(new Date(), due) : null;
+      const dueSoon = !q.paid && daysUntilDue != null && daysUntilDue <= 30;
+      const statusBadge = q.paid
+        ? '<span class="badge ok">Paid</span>'
+        : (daysUntilDue == null ? '' : dueSoon
+            ? `<span class="badge ${daysUntilDue < 0 ? 'bad' : 'warn'}">${daysUntilDue < 0 ? Math.abs(daysUntilDue) + 'd overdue' : daysUntilDue === 0 ? 'due today' : 'due in ' + daysUntilDue + 'd'}</span>`
+            : `<span class="badge muted">in ${daysUntilDue}d</span>`);
+      return `<div class="field-row" style="align-items:center;">
+        <div class="field"><label>${i === 0 ? 'Due date' : ''}</label><input type="date" id="${idp}Q_${i}_date" value="${q.dueDate || ''}"></div>
+        <div class="field"><label>${i === 0 ? 'Amount (AED)' : ''}</label><input type="number" id="${idp}Q_${i}_amount" step="1" value="${q.amount === '' || q.amount == null ? '' : q.amount}"></div>
+        <label style="display:flex;align-items:center;gap:6px;font-weight:normal;${i===0?'margin-top:22px;':''}"><input type="checkbox" id="${idp}Q_${i}_paid" style="width:auto;" ${q.paid ? 'checked' : ''}> Paid</label>
+        <div style="${i===0?'margin-top:22px;':''}">${statusBadge}</div>
+        <button type="button" class="btn small" style="${i===0?'margin-top:22px;':''}" onclick="removeRentQuarter('${key}', ${i})">✕</button>
+      </div>`;
+    }).join('') || '<p class="hint">No quarters entered yet — add one below for each upcoming due date this year.</p>';
     return `<div class="card" style="margin-bottom:12px;">
       <h3>${p.label} <span class="manual-tag">MANUAL</span></h3>
-      <p class="hint">Agreed annually, due quarterly — enter the annual figure for reference, then update "this quarter's amount due" and its due date whenever a new quarterly payment comes up. Leave blank until a figure is confirmed.</p>
-      <div class="field-row">
-        <div class="field"><label>Annual rent (AED/year)</label><input type="number" id="${idp}Annual" step="1" value="${r.annual || ''}"></div>
-        <div class="field"><label>This quarter's amount due (AED)</label><input type="number" id="${idp}Quarter" step="1" value="${r.quarterAmount || ''}"></div>
-        <div class="field"><label>Due date</label><input type="date" id="${idp}DueDate" value="${r.quarterDueDate || ''}"></div>
-      </div>
-      <p class="hint" style="margin-top:10px;">One-time payment (e.g. at lease signing) — split into its 3 components:</p>
+      <p class="hint">Agreed annually, due quarterly. Enter every quarter's due date + amount for the year up front — each one is added to Total cost automatically once it's within 30 days of its due date (no need to flip anything by hand), and drops off once you tick "Paid".</p>
+      <div class="field"><label>Annual rent (AED/year, for reference)</label><input type="number" id="${idp}Annual" step="1" value="${r.annual || ''}" style="max-width:220px;"></div>
+      <div style="margin-top:10px;">${quarterRows}</div>
+      <button type="button" class="btn small" onclick="addRentQuarter('${key}')">+ Add quarter</button>
+      <p class="hint" style="margin-top:14px;">One-time payment (e.g. at lease signing) — split into its 3 components:</p>
       <div class="field-row">
         <div class="field"><label>Quarterly payment (AED)</label><input type="number" id="${idp}OTQuarterly" step="1" value="${r.oneTime.quarterlyPayment || ''}"></div>
         <div class="field"><label>Security deposit (AED)</label><input type="number" id="${idp}OTDeposit" step="1" value="${r.oneTime.securityDeposit || ''}"></div>
@@ -1243,7 +1342,7 @@ function renderHealth() {
     return `<div class="card"><h3>${key}</h3><div class="big" style="font-size:16px;"><span class="badge ${ok?'ok':'bad'}">${ok?'Loaded':'Failed'}</span></div><div class="sub">${path}</div><div class="sub">${ok ? note : (h.note||'')}</div></div>`;
   }).join('');
   const ob = computed.ordersB;
-  document.getElementById('healthDetail').innerHTML = `<p class="hint">Raw finance fields read (performance.v): marketing override <code>pf_cenb_8</code> = ${computed.fin.v.pf_cenb_8 ?? '(using default '+CENTRAL_DEFAULTS.marketing+')'}. Finance's own combined central-pool rent field <code>pf_cenb_0</code> = ${computed.fin.v.pf_cenb_0 ?? '(not set)'} is no longer used in the cost total as of v1.8.0 — showroom rent (${fmtAED(computed.financeC.rentShowroom.cost)}) and warehouse rent (${fmtAED(computed.financeC.rentWarehouse.cost)}) are now entered separately by hand on the Finance tab: this quarter's amount due, plus an optional one-time lease-signing payment (quarterly payment / security deposit / agent fees) that only counts toward a month's cost when its "include" box is ticked.</p>
+  document.getElementById('healthDetail').innerHTML = `<p class="hint">Raw finance fields read (performance.v): marketing override <code>pf_cenb_8</code> = ${computed.fin.v.pf_cenb_8 ?? '(using default '+CENTRAL_DEFAULTS.marketing+')'}. Finance's own combined central-pool rent field <code>pf_cenb_0</code> = ${computed.fin.v.pf_cenb_0 ?? '(not set)'} is no longer used in the cost total as of v1.8.0 — showroom rent (${fmtAED(computed.financeC.rentShowroom.cost)}) and warehouse rent (${fmtAED(computed.financeC.rentWarehouse.cost)}) are now entered as a list of quarters (due date + amount) on the Finance tab; as of v1.9.0 a quarter is pulled into Total cost automatically once it's within 30 days of its due date${computed.financeC.rentShowroom.activeQuarter ? ' (showroom\'s next unpaid quarter is due ' + computed.financeC.rentShowroom.activeQuarter.dueDate + (computed.financeC.rentShowroom.isDueSoon ? ', already counted' : ', not yet within 30 days') + ')' : ''}${computed.financeC.rentWarehouse.activeQuarter ? ' and warehouse\'s next unpaid quarter is due ' + computed.financeC.rentWarehouse.activeQuarter.dueDate + (computed.financeC.rentWarehouse.isDueSoon ? ', already counted' : ', not yet within 30 days') : ''} — no manual toggling needed each quarter, it just drops off once ticked "Paid". Each property also has an optional one-time lease-signing payment (quarterly payment / security deposit / agent fees) that only counts toward a month's cost when its "include" box is ticked.</p>
   <p class="hint">Salaries: read ${computed.hr.employees.length} employee record(s) from HR and reproduced HR's own "Due this month" total for ${fmtMonth(computed.now)} (matches HR's Monthly Salaries tab) — full monthly salary for anyone active the whole month, a prorated slice (active days ÷ days in month) for a joiner or leaver, plus onboarding cost (visa + insurance) in a joiner's first month. Employees are counted by start/end date, same as HR, not by status field.</p>
   <p class="hint">Closed Won here is computed from the sales tracker's OneDrive file (max per rep, per month — matches its exec dashboard's fallback logic). The tracker's dashboard can also override this with a HubSpot-refreshed cache that lives only in your browser's local storage, never in the OneDrive file, so if you've recently clicked "Refresh from HubSpot" there this figure may still be a few deals behind. Ask if you want this pulled live from HubSpot instead for an exact match.</p>
   <p class="hint">Closed XS1/XP1 units (FY lump sum): read from the <b>Delivery Tracker</b> (the delivery CRM) — ${computed.del.deliveries.length} delivery record(s) total, ${ob.closedDealsCount} past the OPEN stage (Delivered - pending session / Delivered - installation pending / Postponed / Closed), of which ${ob.closedDealsWithoutMapping} have no delivery date and can't be placed in a month, and ${ob.closed.unmapped} have a model name that isn't recognized as XS1 or XP1. FY-to-date = those records whose delivery date falls in Jan–${fmtMonth(computed.now)}, matching the scope of the FY Achieved (AED) figure above.</p>
@@ -1358,17 +1457,21 @@ function collectManualInputs() {
   manual.incomeOxefit = (incomeOxefitRaw === '' || incomeOxefitRaw == null) ? null : Number(incomeOxefitRaw);
   manual.financeNote = document.getElementById('mFinanceNote').value || '';
 
-  // Showroom/warehouse rent — annual figure (reference), this quarter's
-  // amount due + due date, and the one-time lease-signing payment split
-  // into its 3 components, plus whether that one-time total should count
-  // toward this month's total cost.
-  function collectRent(idp) {
+  // Showroom/warehouse rent — annual figure (reference), the full list of
+  // quarters entered ahead of time (due date + amount + paid), and the
+  // one-time lease-signing payment split into its 3 components, plus
+  // whether that one-time total should count toward this month's cost.
+  // The quarters themselves are read straight from the DOM via
+  // collectRentDraftFromDOM() (shared with the add/remove-row logic) so
+  // whatever's on screen — including a quarter just added and not yet
+  // saved — is exactly what gets written.
+  const rentQuartersByKey = collectRentDraftFromDOM();
+  function collectRent(idp, key) {
     const el = id => document.getElementById(id);
     if (!el(idp + 'Annual')) return null; // form not rendered yet
     return {
       annual: Number(el(idp + 'Annual').value) || 0,
-      quarterAmount: Number(el(idp + 'Quarter').value) || 0,
-      quarterDueDate: el(idp + 'DueDate').value || '',
+      quarters: rentQuartersByKey[key],
       oneTime: {
         quarterlyPayment: Number(el(idp + 'OTQuarterly').value) || 0,
         securityDeposit: Number(el(idp + 'OTDeposit').value) || 0,
@@ -1377,13 +1480,16 @@ function collectManualInputs() {
       oneTimeIncluded: !!(el(idp + 'OTInclude') && el(idp + 'OTInclude').checked)
     };
   }
-  const rentShowroomIn = collectRent('mRentShowroom');
-  const rentWarehouseIn = collectRent('mRentWarehouse');
+  const rentShowroomIn = collectRent('mRentShowroom', 'showroom');
+  const rentWarehouseIn = collectRent('mRentWarehouse', 'warehouse');
   if (rentShowroomIn || rentWarehouseIn) {
     manual.rent = Object.assign({}, manual.rent);
     if (rentShowroomIn) manual.rent.showroom = rentShowroomIn;
     if (rentWarehouseIn) manual.rent.warehouse = rentWarehouseIn;
   }
+  // Re-render will now rebuild rows from the freshly-saved data, not the
+  // in-progress add/remove draft.
+  rentDraft = null;
 
   manual.costReductionTarget = Number(document.getElementById('mCostReductionTarget').value) || 0;
   manual.costReductionAchieved = Number(document.getElementById('mCostReductionAchieved').value) || 0;
@@ -1434,6 +1540,13 @@ async function saveSnapshot() {
   setSync('syncing', 'Saving snapshot…');
   const okWrite = await writeJsonFile(OWN_FILE, own);
   RAW.own = own;
+  // Recompute (not just re-render the report) so that if the Finance tab's
+  // rent forms are opened next, they read the manual inputs — including
+  // rent quarters — that were just collected and saved here, rather than a
+  // stale cache from before this save (collectManualInputs() already
+  // cleared the in-progress add/remove draft on the assumption a recompute
+  // follows immediately).
+  computeAll();
   renderReport();
   setSync(okWrite ? 'ok' : 'error', okWrite ? 'Snapshot saved' : 'Save failed');
 }
