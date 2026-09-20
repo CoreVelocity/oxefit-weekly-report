@@ -66,6 +66,8 @@ main{padding:22px;max-width:1180px;width:100%;margin:0 auto;}
 .grid.cols-2{grid-template-columns:repeat(2,1fr);}
 @media(max-width:900px){.grid.cols-4,.grid.cols-3,.grid.cols-2{grid-template-columns:1fr 1fr;}}
 @media(max-width:600px){.grid.cols-4,.grid.cols-3,.grid.cols-2{grid-template-columns:1fr;}}
+.grid.oneline{display:flex;flex-wrap:nowrap;gap:14px;overflow-x:auto;}
+.grid.oneline .card{flex:1 1 0;min-width:130px;}
 
 .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;}
 .card h3{margin:0 0 4px;font-size:12.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700;}
@@ -82,6 +84,10 @@ main{padding:22px;max-width:1180px;width:100%;margin:0 auto;}
 /* ---------- EXECUTIVE REPORT ---------- */
 .report-hero{background:linear-gradient(135deg,var(--navy),#0d1f4d 45%,#182f66 150%);border:1px solid var(--line);border-radius:16px;padding:26px 28px;margin-bottom:24px;position:relative;overflow:hidden;}
 .report-hero::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 88% -20%,rgba(82,148,255,.35),transparent 55%);pointer-events:none;}
+.income-banner{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 14px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16);border-radius:10px;padding:10px 16px;margin-bottom:16px;position:relative;}
+.income-banner .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--lblue);font-weight:700;}
+.income-banner .val{font-size:21px;font-weight:800;color:#fff;}
+.income-banner .sub{font-size:11.5px;color:var(--muted);margin-left:auto;}
 .report-hero .eyebrow{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--lblue);font-weight:700;position:relative;}
 .report-hero h1{margin:5px 0 3px;font-size:23px;position:relative;}
 .report-hero .meta-line{color:var(--muted);font-size:12.5px;position:relative;}
@@ -134,9 +140,17 @@ footer.foot{padding:24px;text-align:center;color:var(--muted);font-size:11.5px;}
   header.top, nav.tabs, .no-print{display:none !important;}
   main{max-width:100%;padding:0;}
   body{background:#fff;color:#111;}
-  .card, .rcard, .rtable-wrap, .hero-kpi{background:#fff;border:1px solid #ccc;}
+  .card, .rcard, .rtable-wrap, .hero-kpi, .income-banner{background:#fff;border:1px solid #ccc;}
   .report-hero{background:#fff;border:1px solid #ccc;}
   .report-hero *, .rcard *{color:#111 !important;}
+  /* Negative/positive figures still need to read as red/green on a
+     printed or exported PDF, not just on screen — override the blanket
+     black-text rule above specifically for elements using those two
+     color tokens (their raw inline style attribute still contains the
+     var(--ok)/var(--bad) text even though the rule above intercepts the
+     resolved value). */
+  .report-hero [style*="--bad"], .rcard [style*="--bad"]{color:#c0392b !important;}
+  .report-hero [style*="--ok"], .rcard [style*="--ok"]{color:#1e8449 !important;}
   .tabpane{display:none !important;}
   #tab-report{display:block !important;}
 }
@@ -250,7 +264,7 @@ footer.foot{padding:24px;text-align:center;color:var(--muted);font-size:11.5px;}
     <div class="tabpane" id="tab-annualcost">
       <div class="section">
         <h2>Total Cost (Annual) <span class="manual-tag">MANUAL</span></h2>
-        <p class="hint">This is the fiscal-year view — everything here is scoped to <b>January 1 of this year through today</b> (calendar-year FY), not just this month. <b>Total cost (annual)</b> is <b>not auto-computed</b>: add one row per month as it closes out, with what was actually paid for salaries, marketing, rent, onboarding cost, and any other/miscellaneous expenses that month, and they add up to a running annual total — the same add/remove-row pattern as the rent quarters on the Finance tab. <b>Income to OxeFit (FY-to-date)</b> is AUTO — the same Payouts &amp; OxeFit "Paid to OxeFit" math as the Finance tab, but restricted to deals closed within this fiscal year, so it lines up with the annual cost figure above it. The all-time figure is shown too for reference. <b>Gap (FY)</b> = Income to OxeFit (FY-to-date) − Total cost (annual) — this is the per-FY gap; the Finance tab's monthly cost isn't compared against it since the two aren't the same time window.</p>
+        <p class="hint">This is the fiscal-year view — everything here is scoped to <b>January 1 of this year through today</b> (calendar-year FY), not just this month. <b>Total cost (annual)</b> is <b>not auto-computed</b>: add one row per month as it closes out, with what was actually paid for salaries, marketing, rent, onboarding cost, and any other/miscellaneous expenses that month, and they add up to a running annual total — the same add/remove-row pattern as the rent quarters on the Finance tab. <b>Orders to OxeFit (FY)</b> is AUTO — every order/deal closed within this fiscal year, whether OxeFit has been paid yet or it's still outstanding (the same Payouts &amp; OxeFit cost math as the Finance tab, just not limited to the paid portion), so it lines up with the annual cost figure above it. The all-time paid figure is shown too for reference. <b>Gap (FY)</b> = Orders to OxeFit (FY) − Total cost (annual) — this is the per-FY gap; the Finance tab's monthly cost isn't compared against it since the two aren't the same time window.</p>
         <div id="annualCostCards" class="grid cols-4"></div>
         <div id="annualCostForms" style="margin-top:14px;"></div>
       </div>
@@ -288,7 +302,7 @@ footer.foot{padding:24px;text-align:center;color:var(--muted);font-size:11.5px;}
       <div class="section">
         <h2><span class="letter">f</span> Marketing leads generated this month <span class="auto-tag">AUTO — sales tracker</span></h2>
         <p class="hint">From the Marketing Leads / follow-up pipeline, filtered to leads created this calendar month.</p>
-        <div id="leadsCards" class="grid cols-4"></div>
+        <div id="leadsCards" class="grid oneline"></div>
         <table id="leadsTable" style="margin-top:14px;"></table>
       </div>
     </div>
@@ -416,8 +430,9 @@ function isAuthorizedUser(account) {
    (shown on the sign-in screen, the access-denied screen, and the app
    header — see applyVersionTags()).
 ════════════════════════════════════════════════════════════════════ */
-const APP_VERSION = '2.6.0';
+const APP_VERSION = '2.7.0';
 const CHANGELOG = [
+  { v: '2.7.0', date: '2026-09-20', notes: 'Weekly Report dashboard reworked: "Paid to OxeFit (FY)" is now "Orders to OxeFit (FY)" — the full value of every deal closed this FY, paid or still outstanding (was paid-only before), and the Finance Gap (FY) is now Orders to OxeFit (FY) minus Total cost (annual) to match; "Leads This Month" relabeled "Marketing Leads Generated (this month)"; added a new full-width "Income to OxeFit (all-time)" banner above the report title, spanning the whole hero section; any negative figure (Finance Gap, cost-optimizing %) now shows in red both on screen and in the printed/exported PDF (previously the print stylesheet flattened all report colors to black); the Total Cost (Annual) tab and report section\'s "Income to OxeFit (FY-to-date)" card is likewise now "Orders to OxeFit (FY)"; Marketing leads this month\'s per-stage cards now lay out in a single row instead of wrapping' },
   { v: '2.6.0', date: '2026-09-20', notes: 'Removed the "Cost reduction · achieved / target" card from the printable report\'s FY target progress section — it\'s already shown as the "Cost Optimizing Target (going forward)" hero KPI above it. Added a "Show only active" filter checkbox to Employee status, achievements & closures, on both the Employees tab and the printable report table; a save with the filter on no longer drops notes for hidden (non-active) employees' },
   { v: '2.5.0', date: '2026-09-20', notes: 'Removed the "first draft, sanity-check the AUTO figures" guidance note from the top of the Weekly Report. Reworked the report\'s hero KPI row into 8 boxes in a fixed order: Target Set (FY), FY Achieved, This Month Achieved, Paid to OxeFit (FY), Units Closed (FY), Leads This Month, Finance Gap (FY), Cost Optimizing Target (going forward)' },
   { v: '2.4.0', date: '2026-09-20', notes: '"FY target progress" reworked: FY sales target is now AUTO — last calendar year\'s full closedWon total × (1 + a growth % you enter), replacing the old sum-of-rep-goals figure; a new "Last year closed" card shows the base figure it grows from. Cost reduction vs target is now also AUTO, pulled straight from the Cost Optimizing Targets lump sum (section d) instead of two separate manual fields — target = current cost minus target cost across all 4 items, achieved = that reduction weighted by each item\'s own % complete' },
@@ -1095,14 +1110,20 @@ function computeAll() {
   const fyClosedDeals = financeClosedDeals(fin).filter(d => fyLabelSet.has(normMonthLabel(d.month)));
   const oxefitIncomeFY = computeOxefitIncome(fin, fyClosedDeals);
   const incomeOxefitFY = oxefitIncomeFY.paid;
+  // Orders to OxeFit (FY) — ALL orders generated this FY, whether paid to
+  // OxeFit yet or still outstanding (oxefitIncomeFY.paid + .outstanding =
+  // .totalCost). This is now the headline FY figure and what the FY Gap
+  // is measured against — "Income" undercounted deals that were closed
+  // but not yet paid out.
+  const ordersToOxefitFY = oxefitIncomeFY.totalCost;
 
   // Total Cost (Annual) — NOT auto-computed. Ahmed enters what was
   // actually paid for salaries / marketing / rent / onboarding / other
   // expenses, month by month, as each month closes out (same growable
   // add/remove-row pattern as the rent quarters above). The FY Gap then
-  // compares this running annual total against Income to OxeFit
-  // (FY-to-date) — an apples-to-apples, per-FY comparison, instead of the
-  // old monthly-cost-vs-all-time-income mismatch.
+  // compares this running annual total against Orders to OxeFit (FY) —
+  // an apples-to-apples, per-FY comparison, instead of the old
+  // monthly-cost-vs-all-time-income mismatch.
   const monthsMap = {};
   safeArr(safeObj(manual.annualCost).months).filter(m => m && m.month).forEach(m => { monthsMap[m.month] = m; });
   // One-time migration: v2.1.0 briefly had "Other Expenses" as its own
@@ -1121,12 +1142,12 @@ function computeAll() {
     })
     .sort((a, b) => a.month.localeCompare(b.month));
   const annualCostTotal = annualCostMonths.reduce((s, m) => s + m.total, 0);
-  const gapFY = incomeOxefitFY - annualCostTotal;
+  const gapFY = ordersToOxefitFY - annualCostTotal;
 
   const financeC = {
     salaries, rent, rentShowroom, rentWarehouse, marketing, totalCost,
     incomeOxefit, incomeOxefitAuto: oxefitIncome.paid, incomeOxefitManual, oxefitIncome,
-    oxefitIncomeFY, incomeOxefitFY,
+    oxefitIncomeFY, incomeOxefitFY, ordersToOxefitFY,
     annualCostMonths, annualCostTotal, gapFY
   };
 
@@ -1472,10 +1493,10 @@ function renderAnnualCost() {
   const c = computed.financeC;
   document.getElementById('annualCostCards').innerHTML = [
     cardHtml('Total cost (annual)', fmtAED(c.annualCostTotal), c.annualCostMonths.length + ' month(s) entered', 'MANUAL'),
-    cardHtml('Income to OxeFit (FY-to-date)', fmtAED(c.incomeOxefitFY), 'Paid to OxeFit · Finance · closed this FY · ' + c.oxefitIncomeFY.dealsWithCost + ' deal(s)', 'AUTO'),
+    cardHtml('Orders to OxeFit (FY)', fmtAED(c.ordersToOxefitFY), 'All orders closed this FY, paid or not yet paid · ' + c.oxefitIncomeFY.dealsWithCost + ' deal(s) · of which ' + fmtAED(c.incomeOxefitFY) + ' paid', 'AUTO'),
     cardHtml('Income to OxeFit (all-time)', fmtAED(c.incomeOxefit), 'For reference — since day 0, see Finance tab', 'AUTO')
   ].join('')
-    + `<div class="card"><h3>Gap (FY)</h3><div class="big" style="color:${c.gapFY>=0?'var(--ok)':'var(--bad)'}">${c.gapFY>=0?'+':''}${fmtAED(c.gapFY)}</div><div class="sub">Income to OxeFit (FY-to-date) − Total cost (annual)</div></div>`;
+    + `<div class="card"><h3>Gap (FY)</h3><div class="big" style="color:${c.gapFY>=0?'var(--ok)':'var(--bad)'}">${c.gapFY>=0?'+':''}${fmtAED(c.gapFY)}</div><div class="sub">Orders to OxeFit (FY) − Total cost (annual)</div></div>`;
 
   const rows = currentAnnualCostMonths();
   const monthRows = rows.map((m, i) => {
@@ -1589,7 +1610,7 @@ function renderHealth() {
   <p class="hint">Closed Won here is computed from the sales tracker's OneDrive file (max per rep, per month — matches its exec dashboard's fallback logic). The tracker's dashboard can also override this with a HubSpot-refreshed cache that lives only in your browser's local storage, never in the OneDrive file, so if you've recently clicked "Refresh from HubSpot" there this figure may still be a few deals behind. Ask if you want this pulled live from HubSpot instead for an exact match.</p>
   <p class="hint">Closed XS1/XP1 units (FY lump sum): read from the <b>Delivery Tracker</b> (the delivery CRM) — ${computed.del.deliveries.length} delivery record(s) total, ${ob.closedDealsCount} past the OPEN stage (Delivered - pending session / Delivered - installation pending / Postponed / Closed), of which ${ob.closedDealsWithoutMapping} have no delivery date and can't be placed in a month, and ${ob.closed.unmapped} have a model name that isn't recognized as XS1 or XP1. FY-to-date = those records whose delivery date falls in Jan–${fmtMonth(computed.now)}, matching the scope of the FY Achieved (AED) figure above.</p>
   <p class="hint">Income to OxeFit (auto, all-time): mirrors Finance's Payouts &amp; OxeFit "Paid to OxeFit" KPI exactly — ${computed.financeC.oxefitIncome.dealsWithCost} of ${computed.financeC.oxefitIncome.dealsCount} closed deal(s) EVER (since day 0, no month or FY filter) have an OxeFit cost (device mapping or manual override), totalling ${fmtAED(computed.financeC.oxefitIncome.totalCost)} owed to OxeFit, of which ${fmtAED(computed.financeC.oxefitIncome.paid)} is paid (settled) and ${fmtAED(computed.financeC.oxefitIncome.outstanding)} is still outstanding. Unit costs come from Finance's Costing catalog (<code>costing.DATA</code>/<code>costing.SVC</code> × exchange rate); a deal with no device mapping and no manual cost override contributes AED 0 here, same as it would on Finance's own tab.${computed.financeC.incomeOxefitManual != null ? ' A manual override of ' + fmtAED(computed.financeC.incomeOxefitManual) + ' is currently active on the Finance tab — clear it to use this auto figure.' : ''}</p>
-  <p class="hint">Income to OxeFit (FY-to-date), on the Total Cost (Annual) tab: the exact same math, restricted to deals whose Finance month label falls in this fiscal year (matching the Sales tab's FY scope) — ${computed.financeC.oxefitIncomeFY.dealsWithCost} of ${computed.financeC.oxefitIncomeFY.dealsCount} FY-closed deal(s) have an OxeFit cost, of which ${fmtAED(computed.financeC.oxefitIncomeFY.paid)} is paid. This is the figure compared against Total cost (annual) — ${fmtAED(computed.financeC.annualCostTotal)} from ${computed.financeC.annualCostMonths.length} manually entered month(s), each with salaries/marketing/rent/onboarding/other-expenses columns — for the FY Gap (${(computed.financeC.gapFY>=0?'+':'')+fmtAED(computed.financeC.gapFY)}). The Finance tab's monthly Total cost is intentionally not compared against the all-time income figure for a "gap" any more, since the two cover different time windows.</p>`;
+  <p class="hint">Orders to OxeFit (FY), on the Total Cost (Annual) tab: the same Payouts &amp; OxeFit cost math, restricted to deals whose Finance month label falls in this fiscal year (matching the Sales tab's FY scope) — ${computed.financeC.oxefitIncomeFY.dealsWithCost} of ${computed.financeC.oxefitIncomeFY.dealsCount} FY-closed deal(s) have an OxeFit cost, totalling ${fmtAED(computed.financeC.ordersToOxefitFY)} in orders (paid or not), of which ${fmtAED(computed.financeC.oxefitIncomeFY.paid)} is actually paid so far. The full order total — not just the paid portion — is the figure compared against Total cost (annual) — ${fmtAED(computed.financeC.annualCostTotal)} from ${computed.financeC.annualCostMonths.length} manually entered month(s), each with salaries/marketing/rent/onboarding/other-expenses columns — for the FY Gap (${(computed.financeC.gapFY>=0?'+':'')+fmtAED(computed.financeC.gapFY)}). The Finance tab's monthly Total cost is intentionally not compared against the all-time income figure for a "gap" any more, since the two cover different time windows.</p>`;
 }
 
 function renderReport() {
@@ -1599,6 +1620,11 @@ function renderReport() {
 
   const html = `
     <div class="report-hero">
+      <div class="income-banner">
+        <span class="lbl">Income to OxeFit (all-time)</span>
+        <span class="val">${fmtAED(c.financeC.incomeOxefit)}</span>
+        <span class="sub">${(c.financeC.incomeOxefitManual != null ? 'Manual override' : 'Paid to OxeFit · Finance') + ' · since day 0'}</span>
+      </div>
       <div class="eyebrow">Weekly Business Report · Core Velocity → OxeFit</div>
       <h1>${fmtMonth(c.now)}</h1>
       <div class="meta-line">Generated ${c.now.toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'})} · FY${c.now.getFullYear()} to date</div>
@@ -1606,10 +1632,10 @@ function renderReport() {
         ${heroKpi('Target Set (FY)', fmtAED(c.targetsE.fyTarget), c.targetsE.fyGrowthPct == null ? 'No growth % set' : (c.targetsE.fyGrowthPct>=0?'+':'') + c.targetsE.fyGrowthPct + '% over last year')}
         ${heroKpi('FY Achieved', fmtAED(c.salesA.fyAchieved), pct(c.targetsE.progressPct) + ' of FY target')}
         ${heroKpi('This Month Achieved', fmtAED(c.salesA.monthAchieved), 'vs. committed ' + fmtAED(c.salesA.monthCommitted))}
-        ${heroKpi('Paid to OxeFit (FY)', fmtAED(c.financeC.incomeOxefitFY), c.financeC.oxefitIncomeFY.dealsWithCost + ' deal(s) · FY-to-date')}
+        ${heroKpi('Orders to OxeFit (FY)', fmtAED(c.financeC.ordersToOxefitFY), c.financeC.oxefitIncomeFY.dealsWithCost + ' deal(s) · paid or not yet paid')}
         ${heroKpi('Units Closed (FY)', String(totalClosedUnits), c.ordersB.closed.xs1 + ' XS1 · ' + c.ordersB.closed.xp1 + ' XP1')}
-        ${heroKpi('Leads This Month', String(c.leadsF.total), Object.keys(c.leadsF.byStage).length + ' stage(s) active')}
-        ${heroKpi('Finance Gap (FY)', (c.financeC.gapFY>=0?'+':'') + fmtAED(c.financeC.gapFY), 'Income to OxeFit (FY-to-date) − Total cost (annual)')}
+        ${heroKpi('Marketing Leads Generated (this month)', String(c.leadsF.total), Object.keys(c.leadsF.byStage).length + ' stage(s) active')}
+        ${heroKpi('Finance Gap (FY)', (c.financeC.gapFY>=0?'+':'') + fmtAED(c.financeC.gapFY), 'Orders to OxeFit (FY) − Total cost (annual)', c.financeC.gapFY>=0?'var(--ok)':'var(--bad)')}
         ${heroKpi('Cost Optimizing Target (going forward)', c.costOptTotalPct==null?'—':(c.costOptTotalPct>=0?'+':'')+c.costOptTotalPct.toFixed(0)+'%', fmtAED(c.costOptTotals.current) + ' → ' + fmtAED(c.costOptTotals.target), c.costOptTotalPct==null?'var(--muted)':(c.costOptTotalPct>=0?'var(--ok)':'var(--bad)'))}
       </div>
     </div>
@@ -1649,8 +1675,8 @@ function renderReport() {
       <div class="rsec-head" style="margin-top:18px;"><h2 style="font-size:15px;">Annual (fiscal-year-to-date)</h2></div>
       <div class="grid cols-3">
         ${cardHtml('Total cost (annual)', fmtAED(c.financeC.annualCostTotal), c.financeC.annualCostMonths.length + ' month(s) entered')}
-        ${cardHtml('Income to OxeFit (FY-to-date)', fmtAED(c.financeC.incomeOxefitFY), 'Deals closed this FY')}
-        <div class="card"><h3>Gap (FY)</h3><div class="big" style="color:${c.financeC.gapFY>=0?'var(--ok)':'var(--bad)'}">${c.financeC.gapFY>=0?'+':''}${fmtAED(c.financeC.gapFY)}</div><div class="sub">Income to OxeFit (FY-to-date) − Total cost (annual)</div></div>
+        ${cardHtml('Orders to OxeFit (FY)', fmtAED(c.financeC.ordersToOxefitFY), 'Deals closed this FY, paid or not yet paid')}
+        <div class="card"><h3>Gap (FY)</h3><div class="big" style="color:${c.financeC.gapFY>=0?'var(--ok)':'var(--bad)'}">${c.financeC.gapFY>=0?'+':''}${fmtAED(c.financeC.gapFY)}</div><div class="sub">Orders to OxeFit (FY) − Total cost (annual)</div></div>
       </div>
     </div>
 
@@ -1675,7 +1701,7 @@ function renderReport() {
 
     <div class="rsec">
       <div class="rsec-head"><span class="letter">f</span><h2>Marketing leads this month</h2><span class="rsub">${c.leadsF.total} total</span></div>
-      <div class="grid cols-4">
+      <div class="grid oneline">
         ${Object.keys(c.leadsF.byStage).map(s => cardHtml(s, c.leadsF.byStage[s], 'leads')).join('') || '<div class="rtable-wrap"><div class="empty">No leads recorded this month</div></div>'}
       </div>
     </div>
