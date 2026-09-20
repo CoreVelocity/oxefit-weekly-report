@@ -225,8 +225,9 @@ footer.foot{padding:24px;text-align:center;color:var(--muted);font-size:11.5px;}
     <div class="tabpane" id="tab-finance">
       <div class="section">
         <h2><span class="letter">c</span> Finance — cost vs. income (OxeFit)</h2>
-        <p class="hint"><b>Salaries</b> = this month's "Due this month" total from HR's Monthly Salaries tab, not a flat sum of everyone's salary — a joiner or leaver only owes a prorated slice of the month (calendar days active ÷ days in month), and a joiner's one-time onboarding cost (visa + insurance) is added in their joining month only, matching HR exactly. Showroom/warehouse rent and marketing budget pull from Finance's central cost pool. <b>Income to OxeFit</b> is now AUTO too — it's the same "Paid to OxeFit" figure from Finance's Payouts &amp; OxeFit tab (every closed deal's mapped device cost × the milestone schedule × what's actually been collected from the customer so far), so it should match Finance exactly without retyping it here each week. The field below is only a manual override for a week Finance hasn't synced yet — leave it blank to use the automatic figure.</p>
+        <p class="hint"><b>Salaries</b> = this month's "Due this month" total from HR's Monthly Salaries tab, not a flat sum of everyone's salary — a joiner or leaver only owes a prorated slice of the month (calendar days active ÷ days in month), and a joiner's one-time onboarding cost (visa + insurance) is added in their joining month only, matching HR exactly. <b>Showroom rent</b> and <b>Warehouse rent</b> are tracked separately and entered by hand below — each is agreed annually but due quarterly, so update the amount due and its due date whenever a new quarter comes up; each also has a one-time payment (from signing the lease) split into quarterly payment / security deposit / agent fees, which only counts toward a given month's cost if you tick "include" for it. Marketing budget still pulls from Finance's central cost pool. <b>Income to OxeFit</b> is AUTO — it's the same "Paid to OxeFit" figure from Finance's Payouts &amp; OxeFit tab (every closed deal's mapped device cost × the milestone schedule × what's actually been collected from the customer so far), so it should match Finance exactly without retyping it here each week. The override field below is only for a week Finance hasn't synced yet — leave it blank to use the automatic figure.</p>
         <div id="financeCards" class="grid cols-4"></div>
+        <div id="rentForms" style="margin-top:14px;"></div>
         <div class="card" style="margin-top:14px;">
           <h3>Manual override <span class="manual-tag">MANUAL</span></h3>
           <div class="field-row">
@@ -338,9 +339,14 @@ const SOURCES = {
 const OWN_FILE = '/OXEFIT/oxefit-weekly-report.json';
 
 // Default central-cost baseline mirrored from the Finance tool's own hardcoded
-// defaults (CENTRAL array). Overridden automatically if Finance has saved
-// edited values for these fields (performance.v.pf_cenb_0 / pf_cenb_8).
-const CENTRAL_DEFAULTS = { rentWarehouse: 66858, marketing: 32000 };
+// defaults (CENTRAL array). Overridden automatically if Finance has saved an
+// edited value for this field (performance.v.pf_cenb_8). Rent used to live
+// here too (pf_cenb_0, a single combined showroom+warehouse figure), but as
+// of v1.8.0 showroom and warehouse rent are tracked separately and entered
+// manually on the Finance tab (see manual.rent in computeAll) since each is
+// agreed annually but due quarterly — Finance's central pool no longer feeds
+// the rent cost calculation.
+const CENTRAL_DEFAULTS = { marketing: 32000 };
 
 // Reps excluded from headcount/commission views in the sales tracker (admins)
 const ADMIN_REPS = ['Gladys','Ahmed','Sami','Kamal'];
@@ -362,8 +368,9 @@ function isAuthorizedUser(account) {
    (shown on the sign-in screen, the access-denied screen, and the app
    header — see applyVersionTags()).
 ════════════════════════════════════════════════════════════════════ */
-const APP_VERSION = '1.7.1';
+const APP_VERSION = '1.8.0';
 const CHANGELOG = [
+  { v: '1.8.0', date: '2026-09-20', notes: '"Showroom + warehouse rent" split into two separate, manually-entered line items (rent is agreed annually but due quarterly — enter this quarter\'s amount + due date whenever it changes); each also gets a one-time-payment breakdown (quarterly payment / security deposit / agent fees) with an opt-in toggle to include it in that month\'s total cost' },
   { v: '1.7.1', date: '2026-09-19', notes: 'Salaries fixed to match HR’s own "Due this month" total exactly (prorated for joiners/leavers by calendar days, plus onboarding cost in the joining month) instead of a flat sum of active employees’ monthly salary' },
   { v: '1.7.0', date: '2026-09-19', notes: 'Income to OxeFit is now AUTO — mirrors Finance’s Payouts & OxeFit "Paid to OxeFit" figure exactly (device-mapped cost x milestone schedule x collected %), with a manual override still available for weeks Finance hasn’t synced' },
   { v: '1.6.0', date: '2026-09-19', notes: 'Restricted sign-in to Ahmed, Kamal and Sami; added version number display' },
@@ -939,7 +946,34 @@ function computeAll() {
   // exactly as HR computes it (see salariesDueForMonth). Ahmed confirmed
   // this, not a flat sum of active employees' monthly salary, is correct.
   const salaries = salariesDueForMonth(hr.employees, now.getFullYear(), now.getMonth());
-  const rent = Number(fin.v.pf_cenb_0) || CENTRAL_DEFAULTS.rentWarehouse;
+  // Showroom/warehouse rent — no longer a single Finance-synced figure.
+  // Rent is agreed annually but due quarterly, so Ahmed enters and updates
+  // each property's current quarterly amount + due date by hand here. Each
+  // property can also carry a one-time payment (from signing the lease),
+  // broken into its 3 components (quarterly payment / security deposit /
+  // agent fees); that one-time total only counts toward this month's cost
+  // if explicitly included (it's a rare event, not a recurring cost).
+  function rentItem(key) {
+    const r = safeObj(safeObj(manual.rent)[key]);
+    const ot = safeObj(r.oneTime);
+    const otQuarterly = Number(ot.quarterlyPayment) || 0;
+    const otDeposit = Number(ot.securityDeposit) || 0;
+    const otAgent = Number(ot.agentFees) || 0;
+    const oneTimeTotal = otQuarterly + otDeposit + otAgent;
+    const includeOneTime = !!r.oneTimeIncluded;
+    const quarterAmount = Number(r.quarterAmount) || 0;
+    return {
+      annual: Number(r.annual) || 0,
+      quarterAmount,
+      quarterDueDate: r.quarterDueDate || '',
+      oneTime: { quarterlyPayment: otQuarterly, securityDeposit: otDeposit, agentFees: otAgent },
+      oneTimeTotal, includeOneTime,
+      cost: quarterAmount + (includeOneTime ? oneTimeTotal : 0)
+    };
+  }
+  const rentShowroom = rentItem('showroom');
+  const rentWarehouse = rentItem('warehouse');
+  const rent = rentShowroom.cost + rentWarehouse.cost;
   const marketing = Number(fin.v.pf_cenb_8) || CENTRAL_DEFAULTS.marketing;
   const totalCost = salaries + rent + marketing;
   // Income to OxeFit — AUTO from day one: Finance's own Payouts & OxeFit
@@ -950,7 +984,7 @@ function computeAll() {
   const oxefitIncome = computeOxefitIncome(fin);
   const incomeOxefitManual = (manual.incomeOxefit !== undefined && manual.incomeOxefit !== null && manual.incomeOxefit !== '') ? Number(manual.incomeOxefit) : null;
   const incomeOxefit = incomeOxefitManual != null ? incomeOxefitManual : oxefitIncome.paid;
-  const financeC = { salaries, rent, marketing, totalCost, incomeOxefit, incomeOxefitAuto: oxefitIncome.paid, incomeOxefitManual, oxefitIncome, gap: incomeOxefit - totalCost };
+  const financeC = { salaries, rent, rentShowroom, rentWarehouse, marketing, totalCost, incomeOxefit, incomeOxefitAuto: oxefitIncome.paid, incomeOxefitManual, oxefitIncome, gap: incomeOxefit - totalCost };
 
   // ---- (d) showroom/warehouse relocation — fully manual ----
   const relocation = manual.relocation || {};
@@ -1078,12 +1112,20 @@ function renderOrdersAudit() {
 }
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
+function rentCardSub(r) {
+  const parts = [];
+  parts.push(r.quarterDueDate ? ('due ' + r.quarterDueDate) : 'no due date set');
+  if (r.includeOneTime && r.oneTimeTotal) parts.push('+ ' + fmtAED(r.oneTimeTotal) + ' one-time');
+  return parts.join(' · ');
+}
+
 function renderFinance() {
   const c = computed.financeC;
   const incomeIsOverridden = c.incomeOxefitManual != null;
   document.getElementById('financeCards').innerHTML = [
     cardHtml('Salaries', fmtAED(c.salaries), 'Due this month · HR Monthly Salaries', 'AUTO'),
-    cardHtml('Showroom + warehouse rent', fmtAED(c.rent), 'Finance central pool', 'AUTO'),
+    cardHtml('Showroom rent', fmtAED(c.rentShowroom.cost), rentCardSub(c.rentShowroom), 'MANUAL'),
+    cardHtml('Warehouse rent', fmtAED(c.rentWarehouse.cost), rentCardSub(c.rentWarehouse), 'MANUAL'),
     cardHtml('Marketing budget', fmtAED(c.marketing), 'Finance central pool', 'AUTO'),
     cardHtml('Total cost', fmtAED(c.totalCost), 'Salaries + rent + marketing', 'AUTO'),
     cardHtml('Income to OxeFit', fmtAED(c.incomeOxefit),
@@ -1092,6 +1134,8 @@ function renderFinance() {
   ].join('')
     + `<div class="card"><h3>Gap (Income − Cost)</h3><div class="big" style="color:${c.gap>=0?'var(--ok)':'var(--bad)'}">${c.gap>=0?'+':''}${fmtAED(c.gap)}</div><div class="sub">Positive = OxeFit income covers cost</div></div>`;
 
+  renderRentForms();
+
   // The override field is only ever populated from a saved manual value —
   // never from the auto figure — so an empty box unambiguously means
   // "use Finance's automatic number", and re-saving blank clears the override.
@@ -1099,6 +1143,34 @@ function renderFinance() {
   document.getElementById('mIncomeOxefit').placeholder = 'auto: ' + Math.round(c.incomeOxefitAuto).toLocaleString('en-US');
   const own = safeObj(RAW.own); const manual = safeObj(own.manual);
   document.getElementById('mFinanceNote').value = manual.financeNote || '';
+}
+
+function renderRentForms() {
+  const props = [
+    { key: 'showroom', idp: 'mRentShowroom', label: 'Showroom rent', data: computed.financeC.rentShowroom },
+    { key: 'warehouse', idp: 'mRentWarehouse', label: 'Warehouse rent', data: computed.financeC.rentWarehouse }
+  ];
+  document.getElementById('rentForms').innerHTML = props.map(p => {
+    const r = p.data, idp = p.idp;
+    return `<div class="card" style="margin-bottom:12px;">
+      <h3>${p.label} <span class="manual-tag">MANUAL</span></h3>
+      <p class="hint">Agreed annually, due quarterly — enter the annual figure for reference, then update "this quarter's amount due" and its due date whenever a new quarterly payment comes up. Leave blank until a figure is confirmed.</p>
+      <div class="field-row">
+        <div class="field"><label>Annual rent (AED/year)</label><input type="number" id="${idp}Annual" step="1" value="${r.annual || ''}"></div>
+        <div class="field"><label>This quarter's amount due (AED)</label><input type="number" id="${idp}Quarter" step="1" value="${r.quarterAmount || ''}"></div>
+        <div class="field"><label>Due date</label><input type="date" id="${idp}DueDate" value="${r.quarterDueDate || ''}"></div>
+      </div>
+      <p class="hint" style="margin-top:10px;">One-time payment (e.g. at lease signing) — split into its 3 components:</p>
+      <div class="field-row">
+        <div class="field"><label>Quarterly payment (AED)</label><input type="number" id="${idp}OTQuarterly" step="1" value="${r.oneTime.quarterlyPayment || ''}"></div>
+        <div class="field"><label>Security deposit (AED)</label><input type="number" id="${idp}OTDeposit" step="1" value="${r.oneTime.securityDeposit || ''}"></div>
+        <div class="field"><label>Agent fees (AED)</label><input type="number" id="${idp}OTAgent" step="1" value="${r.oneTime.agentFees || ''}"></div>
+      </div>
+      <div class="field-row" style="align-items:center;">
+        <label style="display:flex;align-items:center;gap:6px;font-weight:normal;"><input type="checkbox" id="${idp}OTInclude" style="width:auto;" ${r.includeOneTime ? 'checked' : ''}> Include this one-time payment (${fmtAED(r.oneTimeTotal)}) in this month's total cost</label>
+      </div>
+    </div>`;
+  }).join('') + `<button class="btn primary small" onclick="saveManualInputs()">Save rent figures</button>`;
 }
 
 function renderShowroom() {
@@ -1171,7 +1243,7 @@ function renderHealth() {
     return `<div class="card"><h3>${key}</h3><div class="big" style="font-size:16px;"><span class="badge ${ok?'ok':'bad'}">${ok?'Loaded':'Failed'}</span></div><div class="sub">${path}</div><div class="sub">${ok ? note : (h.note||'')}</div></div>`;
   }).join('');
   const ob = computed.ordersB;
-  document.getElementById('healthDetail').innerHTML = `<p class="hint">Raw finance fields read (performance.v): rent override <code>pf_cenb_0</code> = ${computed.fin.v.pf_cenb_0 ?? '(using default '+CENTRAL_DEFAULTS.rentWarehouse+')'} · marketing override <code>pf_cenb_8</code> = ${computed.fin.v.pf_cenb_8 ?? '(using default '+CENTRAL_DEFAULTS.marketing+')'}.</p>
+  document.getElementById('healthDetail').innerHTML = `<p class="hint">Raw finance fields read (performance.v): marketing override <code>pf_cenb_8</code> = ${computed.fin.v.pf_cenb_8 ?? '(using default '+CENTRAL_DEFAULTS.marketing+')'}. Finance's own combined central-pool rent field <code>pf_cenb_0</code> = ${computed.fin.v.pf_cenb_0 ?? '(not set)'} is no longer used in the cost total as of v1.8.0 — showroom rent (${fmtAED(computed.financeC.rentShowroom.cost)}) and warehouse rent (${fmtAED(computed.financeC.rentWarehouse.cost)}) are now entered separately by hand on the Finance tab: this quarter's amount due, plus an optional one-time lease-signing payment (quarterly payment / security deposit / agent fees) that only counts toward a month's cost when its "include" box is ticked.</p>
   <p class="hint">Salaries: read ${computed.hr.employees.length} employee record(s) from HR and reproduced HR's own "Due this month" total for ${fmtMonth(computed.now)} (matches HR's Monthly Salaries tab) — full monthly salary for anyone active the whole month, a prorated slice (active days ÷ days in month) for a joiner or leaver, plus onboarding cost (visa + insurance) in a joiner's first month. Employees are counted by start/end date, same as HR, not by status field.</p>
   <p class="hint">Closed Won here is computed from the sales tracker's OneDrive file (max per rep, per month — matches its exec dashboard's fallback logic). The tracker's dashboard can also override this with a HubSpot-refreshed cache that lives only in your browser's local storage, never in the OneDrive file, so if you've recently clicked "Refresh from HubSpot" there this figure may still be a few deals behind. Ask if you want this pulled live from HubSpot instead for an exact match.</p>
   <p class="hint">Closed XS1/XP1 units (FY lump sum): read from the <b>Delivery Tracker</b> (the delivery CRM) — ${computed.del.deliveries.length} delivery record(s) total, ${ob.closedDealsCount} past the OPEN stage (Delivered - pending session / Delivered - installation pending / Postponed / Closed), of which ${ob.closedDealsWithoutMapping} have no delivery date and can't be placed in a month, and ${ob.closed.unmapped} have a model name that isn't recognized as XS1 or XP1. FY-to-date = those records whose delivery date falls in Jan–${fmtMonth(computed.now)}, matching the scope of the FY Achieved (AED) figure above.</p>
@@ -1221,7 +1293,8 @@ function renderReport() {
       <div class="rsec-head"><span class="letter">c</span><h2>Finance — cost vs. income</h2><span class="rsub">${fmtMonth(c.now)}</span></div>
       <div class="grid cols-4">
         ${cardHtml('Salaries', fmtAED(c.financeC.salaries), 'Due this month · HR')}
-        ${cardHtml('Rent (showroom + warehouse)', fmtAED(c.financeC.rent), 'Finance central pool')}
+        ${cardHtml('Showroom rent', fmtAED(c.financeC.rentShowroom.cost), rentCardSub(c.financeC.rentShowroom))}
+        ${cardHtml('Warehouse rent', fmtAED(c.financeC.rentWarehouse.cost), rentCardSub(c.financeC.rentWarehouse))}
         ${cardHtml('Marketing budget', fmtAED(c.financeC.marketing), 'Finance central pool')}
         ${cardHtml('Total cost', fmtAED(c.financeC.totalCost), 'Salaries + rent + marketing')}
       </div>
@@ -1284,6 +1357,34 @@ function collectManualInputs() {
   const incomeOxefitRaw = document.getElementById('mIncomeOxefit').value;
   manual.incomeOxefit = (incomeOxefitRaw === '' || incomeOxefitRaw == null) ? null : Number(incomeOxefitRaw);
   manual.financeNote = document.getElementById('mFinanceNote').value || '';
+
+  // Showroom/warehouse rent — annual figure (reference), this quarter's
+  // amount due + due date, and the one-time lease-signing payment split
+  // into its 3 components, plus whether that one-time total should count
+  // toward this month's total cost.
+  function collectRent(idp) {
+    const el = id => document.getElementById(id);
+    if (!el(idp + 'Annual')) return null; // form not rendered yet
+    return {
+      annual: Number(el(idp + 'Annual').value) || 0,
+      quarterAmount: Number(el(idp + 'Quarter').value) || 0,
+      quarterDueDate: el(idp + 'DueDate').value || '',
+      oneTime: {
+        quarterlyPayment: Number(el(idp + 'OTQuarterly').value) || 0,
+        securityDeposit: Number(el(idp + 'OTDeposit').value) || 0,
+        agentFees: Number(el(idp + 'OTAgent').value) || 0
+      },
+      oneTimeIncluded: !!(el(idp + 'OTInclude') && el(idp + 'OTInclude').checked)
+    };
+  }
+  const rentShowroomIn = collectRent('mRentShowroom');
+  const rentWarehouseIn = collectRent('mRentWarehouse');
+  if (rentShowroomIn || rentWarehouseIn) {
+    manual.rent = Object.assign({}, manual.rent);
+    if (rentShowroomIn) manual.rent.showroom = rentShowroomIn;
+    if (rentWarehouseIn) manual.rent.warehouse = rentWarehouseIn;
+  }
+
   manual.costReductionTarget = Number(document.getElementById('mCostReductionTarget').value) || 0;
   manual.costReductionAchieved = Number(document.getElementById('mCostReductionAchieved').value) || 0;
 
