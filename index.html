@@ -252,10 +252,11 @@ footer.foot{padding:24px;text-align:center;color:var(--muted);font-size:11.5px;}
     <!-- ============ SHOWROOM / WAREHOUSE ============ -->
     <div class="tabpane" id="tab-showroom">
       <div class="section">
-        <h2><span class="letter">d</span> Showroom &amp; warehouse relocation progress <span class="manual-tag">MANUAL — you update this weekly</span></h2>
-        <p class="hint">Tracks progress on moving to replacement premises (ties into the leasing brief / agent outreach work) and the cost reduction that comes with it.</p>
-        <div id="relocationForms"></div>
-        <button class="btn primary small" onclick="saveManualInputs()">Save relocation update</button>
+        <h2><span class="letter">d</span> Cost Optimizing Targets <span class="manual-tag">MANUAL — you update this weekly</span></h2>
+        <p class="hint">Tracks cost optimization across Dubai showroom, Abu Dhabi showroom, Warehouse (relocation to replacement premises — ties into the leasing brief / agent outreach work) and Salaries. Enter each item's current cost and target/optimized cost — the % optimized and the lump-sum total below are computed from those.</p>
+        <div id="costOptCards" class="grid cols-4"></div>
+        <div id="relocationForms" style="margin-top:14px;"></div>
+        <button class="btn primary small" onclick="saveManualInputs()">Save cost optimizing targets</button>
       </div>
     </div>
 
@@ -362,6 +363,12 @@ const CENTRAL_DEFAULTS = { marketing: 32000 };
 const ADMIN_REPS = ['Gladys','Ahmed','Sami','Kamal'];
 const FALLBACK_TEAMS = { 'Dubai': ['Fatima','Marios','Hasan','Katy','Milena'], 'Abu Dhabi': ['Wafiq','Jawdat','Hussean'] };
 
+// Cost Optimizing Targets — the 4 line items Ahmed tracks manually
+// (current cost → target/optimized cost, a target date, and progress).
+// Shared by computeAll(), the entry form and the printable report so the
+// three stay in lockstep.
+const COST_OPT_ITEMS = ['Dubai showroom', 'Abu Dhabi showroom', 'Warehouse', 'Salaries'];
+
 // This tool is restricted to Ahmed, Kamal and Sami only — UPNs match the
 // same core-velocity.com tenant addresses used as REP_EMAILS keys in the
 // sales tracker. Checked case-insensitively against the signed-in MSAL
@@ -378,8 +385,9 @@ function isAuthorizedUser(account) {
    (shown on the sign-in screen, the access-denied screen, and the app
    header — see applyVersionTags()).
 ════════════════════════════════════════════════════════════════════ */
-const APP_VERSION = '2.1.1';
+const APP_VERSION = '2.2.0';
 const CHANGELOG = [
+  { v: '2.2.0', date: '2026-09-20', notes: '"Showroom & warehouse relocation" renamed to "Cost Optimizing Targets" and extended with a 4th line item, Salaries, alongside Dubai showroom / Abu Dhabi showroom / Warehouse. Each item now shows a computed % optimized (current cost → target cost) in green, plus a lump-sum total row across all 4 — on both the entry form (with a new summary-card row) and the printable weekly report, which also gets a new "Cost Optimized (lump sum)" hero KPI' },
   { v: '2.1.1', date: '2026-09-20', notes: 'Reworked the v2.1.0 Other Expenses tab into a 5th column ("Other expenses") right next to Onboarding cost in the Total Cost (Annual) monthly ledger, instead of a separate tab — one row per month covers everything now. Removed the redundant "Monthly ledger subtotal" card from the Total Cost (Annual) dashboard (any old Other Expenses tab data is migrated into the new column automatically on first save)' },
   { v: '2.1.0', date: '2026-09-20', notes: 'Total Cost (Annual) tab: the monthly cost ledger gets a 4th column, Onboarding cost, alongside salaries/marketing/rent; added a new Other Expenses tab for ad-hoc, dated one-off costs (same add/remove-row pattern) that also roll into Total cost (annual) and the FY Gap' },
   { v: '2.0.0', date: '2026-09-20', notes: 'Finance restructured to fix the monthly-cost-vs-all-time-income mismatch: "Total cost" is now explicitly "Total cost (this month)"; a new Total Cost (Annual) tab holds a manually entered month-by-month ledger (salaries/marketing/rent paid — same add/remove-row pattern as rent quarters) that sums to an annual total; Income to OxeFit now also has an FY-to-date variant (deals closed this fiscal year only) alongside the existing all-time figure; the Finance Gap is now Income to OxeFit (FY-to-date) − Total cost (annual), an apples-to-apples per-FY comparison, replacing the old monthly-cost-vs-all-time-income gap' },
@@ -1083,8 +1091,24 @@ function computeAll() {
     annualCostMonths, annualCostTotal, gapFY
   };
 
-  // ---- (d) showroom/warehouse relocation — fully manual ----
+  // ---- (d) Cost Optimizing Targets — fully manual (current cost → target
+  // cost, per item: Dubai showroom, Abu Dhabi showroom, Warehouse,
+  // Salaries), with a computed % optimized per item and a lump-sum
+  // roll-up across all 4. currentRent/newRent are the same saved fields
+  // the relocation tracker has always used — "rent" for the two
+  // showrooms and the warehouse, repurposed as "current/target cost" for
+  // Salaries so all 4 rows share one shape.
   const relocation = manual.relocation || {};
+  const costOptTargets = COST_OPT_ITEMS.map(p => {
+    const key = p.replace(/\s+/g, '_');
+    const v = safeObj(relocation[key]);
+    const current = Number(v.currentRent) || 0;
+    const target = Number(v.newRent) || 0;
+    const pctOptimized = current > 0 ? ((current - target) / current * 100) : null;
+    return { key, name: p, status: v.status || 'Not started', pct: Number(v.pct) || 0, date: v.date || '', current, target, pctOptimized, notes: v.notes || '' };
+  });
+  const costOptTotals = costOptTargets.reduce((a, x) => ({ current: a.current + x.current, target: a.target + x.target }), { current: 0, target: 0 });
+  const costOptTotalPct = costOptTotals.current > 0 ? ((costOptTotals.current - costOptTotals.target) / costOptTotals.current * 100) : null;
 
   // ---- (e) FY targets ----
   const goals = safeObj((sales.data.perfMeta || {}).goals);
@@ -1129,7 +1153,7 @@ function computeAll() {
     };
   });
 
-  computed = { now, thisMonthKey, fyMonths, salesA, ordersB, financeC, relocation, targetsE, leadsF, teamG, sales, hr, fin, del };
+  computed = { now, thisMonthKey, fyMonths, salesA, ordersB, financeC, relocation, costOptTargets, costOptTotals, costOptTotalPct, targetsE, leadsF, teamG, sales, hr, fin, del };
   return computed;
 }
 
@@ -1425,27 +1449,38 @@ function renderAnnualCost() {
     <button class="btn primary small" style="margin-top:12px;" onclick="saveManualInputs()">Save annual cost figures</button>`;
 }
 
+const RELOCATION_STATUSES = ['Not started','Searching','Shortlisting','Negotiating','Signed','Fit-out','Moved in'];
+const SALARY_OPT_STATUSES = ['Not started','Reviewing','Restructuring','Renegotiating','Implemented'];
+
+function pctColor(p) { return p == null ? 'var(--muted)' : (p >= 0 ? 'var(--ok)' : 'var(--bad)'); }
+function fmtPctOptimized(p) { return p == null ? '—' : (p >= 0 ? '+' : '') + p.toFixed(0) + '%'; }
+
 function renderShowroom() {
-  const rel = computed.relocation || {};
-  const props = ['Dubai showroom', 'Abu Dhabi showroom', 'Warehouse'];
-  document.getElementById('relocationForms').innerHTML = props.map(p => {
-    const key = p.replace(/\s+/g,'_');
-    const v = rel[key] || {};
+  const targets = computed.costOptTargets || [];
+  document.getElementById('costOptCards').innerHTML = targets.map(x =>
+    `<div class="card"><h3>${x.name}</h3><div class="big" style="color:${pctColor(x.pctOptimized)}">${fmtPctOptimized(x.pctOptimized)}</div><div class="sub">${fmtAED(x.current)} → ${fmtAED(x.target)}${x.date ? ' · target ' + x.date : ''}</div></div>`
+  ).join('') + `<div class="card"><h3>Total (lump sum)</h3><div class="big" style="color:${pctColor(computed.costOptTotalPct)}">${fmtPctOptimized(computed.costOptTotalPct)}</div><div class="sub">${fmtAED(computed.costOptTotals.current)} → ${fmtAED(computed.costOptTotals.target)}</div></div>`;
+
+  document.getElementById('relocationForms').innerHTML = targets.map(x => {
+    const key = x.key, p = x.name;
+    const isSalaries = p === 'Salaries';
+    const statusOptions = isSalaries ? SALARY_OPT_STATUSES : RELOCATION_STATUSES;
+    const currentPlaceholder = isSalaries ? ('auto: ' + Math.round(computed.financeC.salaries).toLocaleString('en-US') + '/mo') : '';
     return `<div class="card" style="margin-bottom:12px;">
-      <h3>${p}</h3>
+      <h3>${p} <span class="sub" style="font-weight:normal;color:${pctColor(x.pctOptimized)};">${fmtPctOptimized(x.pctOptimized)} optimized</span></h3>
       <div class="field-row">
         <div class="field"><label>Status</label>
           <select id="rel_${key}_status">
-            ${['Not started','Searching','Shortlisting','Negotiating','Signed','Fit-out','Moved in'].map(s=>`<option ${v.status===s?'selected':''}>${s}</option>`).join('')}
+            ${statusOptions.map(s=>`<option ${x.status===s?'selected':''}>${s}</option>`).join('')}
           </select>
         </div>
-        <div class="field"><label>% complete</label><input type="number" min="0" max="100" id="rel_${key}_pct" value="${v.pct||0}"></div>
-        <div class="field"><label>Target move date</label><input type="date" id="rel_${key}_date" value="${v.date||''}"></div>
-        <div class="field"><label>Current rent (AED/mo)</label><input type="number" id="rel_${key}_currentRent" value="${v.currentRent||''}"></div>
-        <div class="field"><label>New rent (AED/mo)</label><input type="number" id="rel_${key}_newRent" value="${v.newRent||''}"></div>
+        <div class="field"><label>% complete</label><input type="number" min="0" max="100" id="rel_${key}_pct" value="${x.pct||0}"></div>
+        <div class="field"><label>${isSalaries ? 'Target date' : 'Target move date'}</label><input type="date" id="rel_${key}_date" value="${x.date||''}"></div>
+        <div class="field"><label>${isSalaries ? 'Current cost (AED/mo)' : 'Current rent (AED/mo)'}</label><input type="number" id="rel_${key}_currentRent" value="${x.current||''}" ${currentPlaceholder ? `placeholder="${currentPlaceholder}"` : ''}></div>
+        <div class="field"><label>${isSalaries ? 'Target cost (AED/mo)' : 'New rent (AED/mo)'}</label><input type="number" id="rel_${key}_newRent" value="${x.target||''}"></div>
       </div>
-      <div class="field"><label>Notes</label><textarea id="rel_${key}_notes">${v.notes||''}</textarea></div>
-      <div class="progress" style="margin-top:8px;"><div style="width:${v.pct||0}%"></div></div>
+      <div class="field"><label>Notes</label><textarea id="rel_${key}_notes">${x.notes||''}</textarea></div>
+      <div class="progress" style="margin-top:8px;"><div style="width:${x.pct||0}%"></div></div>
     </div>`;
   }).join('');
 }
@@ -1505,7 +1540,7 @@ function renderHealth() {
 
 function renderReport() {
   const c = computed;
-  const heroKpi = (lbl, val, foot) => `<div class="hero-kpi"><div class="lbl">${lbl}</div><div class="val">${val}</div><div class="foot">${foot||''}</div></div>`;
+  const heroKpi = (lbl, val, foot, color) => `<div class="hero-kpi"><div class="lbl">${lbl}</div><div class="val"${color ? ` style="color:${color};"` : ''}>${val}</div><div class="foot">${foot||''}</div></div>`;
   const totalClosedUnits = c.ordersB.closed.xs1 + c.ordersB.closed.xp1;
 
   const html = `
@@ -1519,6 +1554,7 @@ function renderReport() {
         ${heroKpi('Units Closed (FY)', String(totalClosedUnits), c.ordersB.closed.xs1 + ' XS1 · ' + c.ordersB.closed.xp1 + ' XP1')}
         ${heroKpi('Leads This Month', String(c.leadsF.total), Object.keys(c.leadsF.byStage).length + ' stage(s) active')}
         ${heroKpi('Finance Gap (FY)', (c.financeC.gapFY>=0?'+':'') + fmtAED(c.financeC.gapFY), 'Income to OxeFit (FY-to-date) − Total cost (annual)')}
+        ${heroKpi('Cost Optimized (lump sum)', c.costOptTotalPct==null?'—':(c.costOptTotalPct>=0?'+':'')+c.costOptTotalPct.toFixed(0)+'%', fmtAED(c.costOptTotals.current) + ' → ' + fmtAED(c.costOptTotals.target), c.costOptTotalPct==null?'var(--muted)':(c.costOptTotalPct>=0?'var(--ok)':'var(--bad)'))}
       </div>
     </div>
 
@@ -1563,10 +1599,11 @@ function renderReport() {
     </div>
 
     <div class="rsec">
-      <div class="rsec-head"><span class="letter">d</span><h2>Showroom &amp; warehouse relocation</h2></div>
+      <div class="rsec-head"><span class="letter">d</span><h2>Cost Optimizing Targets</h2></div>
       <div class="rtable-wrap"><table>
-        <tr><th>Property</th><th>Status</th><th>% complete</th><th>Target date</th><th>Rent (current → new)</th><th>Notes</th></tr>
-        ${['Dubai showroom','Abu Dhabi showroom','Warehouse'].map(p=>{const k=p.replace(/\s+/g,'_');const v=(c.relocation[k]||{});return `<tr><td>${p}</td><td><span class="badge muted">${v.status||'Not started'}</span></td><td>${v.pct||0}%</td><td>${v.date||'—'}</td><td>${v.currentRent?fmtAED(v.currentRent):'—'} → ${v.newRent?fmtAED(v.newRent):'—'}</td><td>${v.notes||''}</td></tr>`;}).join('')}
+        <tr><th>Item</th><th>Status</th><th>% complete</th><th>Target date</th><th>Cost (current → target)</th><th>% optimized</th><th>Notes</th></tr>
+        ${c.costOptTargets.map(x=>`<tr><td>${x.name}</td><td><span class="badge muted">${x.status}</span></td><td>${x.pct}%</td><td>${x.date||'—'}</td><td>${x.current?fmtAED(x.current):'—'} → ${x.target?fmtAED(x.target):'—'}</td><td style="color:${x.pctOptimized==null?'var(--muted)':(x.pctOptimized>=0?'var(--ok)':'var(--bad)')};font-weight:700;">${x.pctOptimized==null?'—':(x.pctOptimized>=0?'+':'')+x.pctOptimized.toFixed(0)+'%'}</td><td>${x.notes||''}</td></tr>`).join('')}
+        <tr style="font-weight:700;"><td>Total (lump sum)</td><td>—</td><td>—</td><td>—</td><td>${fmtAED(c.costOptTotals.current)} → ${fmtAED(c.costOptTotals.target)}</td><td style="color:${c.costOptTotalPct==null?'var(--muted)':(c.costOptTotalPct>=0?'var(--ok)':'var(--bad)')};">${c.costOptTotalPct==null?'—':(c.costOptTotalPct>=0?'+':'')+c.costOptTotalPct.toFixed(0)+'%'}</td><td>—</td></tr>
       </table></div>
     </div>
 
@@ -1666,7 +1703,7 @@ function collectManualInputs() {
   manual.costReductionAchieved = Number(document.getElementById('mCostReductionAchieved').value) || 0;
 
   const relocation = {};
-  ['Dubai showroom','Abu Dhabi showroom','Warehouse'].forEach(p => {
+  COST_OPT_ITEMS.forEach(p => {
     const k = p.replace(/\s+/g,'_');
     const el = id => document.getElementById(id);
     if (!el(`rel_${k}_status`)) return;
