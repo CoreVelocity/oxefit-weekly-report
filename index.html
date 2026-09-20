@@ -85,7 +85,7 @@ main{padding:22px;max-width:1180px;width:100%;margin:0 auto;}
 .report-hero .eyebrow{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--lblue);font-weight:700;position:relative;}
 .report-hero h1{margin:5px 0 3px;font-size:23px;position:relative;}
 .report-hero .meta-line{color:var(--muted);font-size:12.5px;position:relative;}
-.hero-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:20px;position:relative;}
+.hero-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:20px;position:relative;}
 @media(max-width:1000px){.hero-kpis{grid-template-columns:repeat(3,1fr);}}
 @media(max-width:600px){.hero-kpis{grid-template-columns:repeat(2,1fr);}}
 .hero-kpi{background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.12);border-radius:11px;padding:12px 14px;}
@@ -205,7 +205,6 @@ footer.foot{padding:24px;text-align:center;color:var(--muted);font-size:11.5px;}
         <button class="btn" onclick="downloadJson()">⬇ Export report JSON</button>
         <span class="sub" id="lastSnapshotLine" style="color:var(--muted);font-size:12px;"></span>
       </div>
-      <div class="warnnote no-print">This is a first draft wired directly to your Sales / HR / Finance tools. Figures marked <span class="auto-tag">AUTO</span> are pulled live — please sanity-check them against the source tools before this goes to OxeFit. Figures marked <span class="manual-tag">MANUAL</span> are entered by you each week (see the relevant tab). See <b>Data Health</b> for exactly what loaded.</div>
 
       <div id="reportBody"><!-- rendered by renderReport() --></div>
     </div>
@@ -405,8 +404,9 @@ function isAuthorizedUser(account) {
    (shown on the sign-in screen, the access-denied screen, and the app
    header — see applyVersionTags()).
 ════════════════════════════════════════════════════════════════════ */
-const APP_VERSION = '2.4.0';
+const APP_VERSION = '2.5.0';
 const CHANGELOG = [
+  { v: '2.5.0', date: '2026-09-20', notes: 'Removed the "first draft, sanity-check the AUTO figures" guidance note from the top of the Weekly Report. Reworked the report\'s hero KPI row into 8 boxes in a fixed order: Target Set (FY), FY Achieved, This Month Achieved, Paid to OxeFit (FY), Units Closed (FY), Leads This Month, Finance Gap (FY), Cost Optimizing Target (going forward)' },
   { v: '2.4.0', date: '2026-09-20', notes: '"FY target progress" reworked: FY sales target is now AUTO — last calendar year\'s full closedWon total × (1 + a growth % you enter), replacing the old sum-of-rep-goals figure; a new "Last year closed" card shows the base figure it grows from. Cost reduction vs target is now also AUTO, pulled straight from the Cost Optimizing Targets lump sum (section d) instead of two separate manual fields — target = current cost minus target cost across all 4 items, achieved = that reduction weighted by each item\'s own % complete' },
   { v: '2.3.0', date: '2026-09-20', notes: 'Added an AED / USD display toggle in the header (fixed rate 1 USD = 3.67 AED). All figures are still entered and stored in AED — the toggle only changes how amounts are displayed across the dashboard and the printable weekly report; your choice is remembered on this device' },
   { v: '2.2.0', date: '2026-09-20', notes: '"Showroom & warehouse relocation" renamed to "Cost Optimizing Targets" and extended with a 4th line item, Salaries, alongside Dubai showroom / Abu Dhabi showroom / Warehouse. Each item now shows a computed % optimized (current cost → target cost) in green, plus a lump-sum total row across all 4 — on both the entry form (with a new summary-card row) and the printable weekly report, which also gets a new "Cost Optimized (lump sum)" hero KPI' },
@@ -1589,12 +1589,14 @@ function renderReport() {
       <h1>${fmtMonth(c.now)}</h1>
       <div class="meta-line">Generated ${c.now.toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'})} · FY${c.now.getFullYear()} to date</div>
       <div class="hero-kpis">
+        ${heroKpi('Target Set (FY)', fmtAED(c.targetsE.fyTarget), c.targetsE.fyGrowthPct == null ? 'No growth % set' : (c.targetsE.fyGrowthPct>=0?'+':'') + c.targetsE.fyGrowthPct + '% over last year')}
         ${heroKpi('FY Achieved', fmtAED(c.salesA.fyAchieved), pct(c.targetsE.progressPct) + ' of FY target')}
         ${heroKpi('This Month Achieved', fmtAED(c.salesA.monthAchieved), 'vs. committed ' + fmtAED(c.salesA.monthCommitted))}
+        ${heroKpi('Paid to OxeFit (FY)', fmtAED(c.financeC.incomeOxefitFY), c.financeC.oxefitIncomeFY.dealsWithCost + ' deal(s) · FY-to-date')}
         ${heroKpi('Units Closed (FY)', String(totalClosedUnits), c.ordersB.closed.xs1 + ' XS1 · ' + c.ordersB.closed.xp1 + ' XP1')}
         ${heroKpi('Leads This Month', String(c.leadsF.total), Object.keys(c.leadsF.byStage).length + ' stage(s) active')}
         ${heroKpi('Finance Gap (FY)', (c.financeC.gapFY>=0?'+':'') + fmtAED(c.financeC.gapFY), 'Income to OxeFit (FY-to-date) − Total cost (annual)')}
-        ${heroKpi('Cost Optimized (lump sum)', c.costOptTotalPct==null?'—':(c.costOptTotalPct>=0?'+':'')+c.costOptTotalPct.toFixed(0)+'%', fmtAED(c.costOptTotals.current) + ' → ' + fmtAED(c.costOptTotals.target), c.costOptTotalPct==null?'var(--muted)':(c.costOptTotalPct>=0?'var(--ok)':'var(--bad)'))}
+        ${heroKpi('Cost Optimizing Target (going forward)', c.costOptTotalPct==null?'—':(c.costOptTotalPct>=0?'+':'')+c.costOptTotalPct.toFixed(0)+'%', fmtAED(c.costOptTotals.current) + ' → ' + fmtAED(c.costOptTotals.target), c.costOptTotalPct==null?'var(--muted)':(c.costOptTotalPct>=0?'var(--ok)':'var(--bad)'))}
       </div>
     </div>
 
