@@ -225,7 +225,7 @@ footer.foot{padding:24px;text-align:center;color:var(--muted);font-size:11.5px;}
     <div class="tabpane" id="tab-finance">
       <div class="section">
         <h2><span class="letter">c</span> Finance — cost vs. income (OxeFit)</h2>
-        <p class="hint">Salaries pull from HR; showroom/warehouse rent and marketing budget pull from Finance's central cost pool. <b>Income to OxeFit</b> is now AUTO too — it's the same "Paid to OxeFit" figure from Finance's Payouts &amp; OxeFit tab (every closed deal's mapped device cost × the milestone schedule × what's actually been collected from the customer so far), so it should match Finance exactly without retyping it here each week. The field below is only a manual override for a week Finance hasn't synced yet — leave it blank to use the automatic figure.</p>
+        <p class="hint"><b>Salaries</b> = this month's "Due this month" total from HR's Monthly Salaries tab, not a flat sum of everyone's salary — a joiner or leaver only owes a prorated slice of the month (calendar days active ÷ days in month), and a joiner's one-time onboarding cost (visa + insurance) is added in their joining month only, matching HR exactly. Showroom/warehouse rent and marketing budget pull from Finance's central cost pool. <b>Income to OxeFit</b> is now AUTO too — it's the same "Paid to OxeFit" figure from Finance's Payouts &amp; OxeFit tab (every closed deal's mapped device cost × the milestone schedule × what's actually been collected from the customer so far), so it should match Finance exactly without retyping it here each week. The field below is only a manual override for a week Finance hasn't synced yet — leave it blank to use the automatic figure.</p>
         <div id="financeCards" class="grid cols-4"></div>
         <div class="card" style="margin-top:14px;">
           <h3>Manual override <span class="manual-tag">MANUAL</span></h3>
@@ -362,8 +362,9 @@ function isAuthorizedUser(account) {
    (shown on the sign-in screen, the access-denied screen, and the app
    header — see applyVersionTags()).
 ════════════════════════════════════════════════════════════════════ */
-const APP_VERSION = '1.7.0';
+const APP_VERSION = '1.7.1';
 const CHANGELOG = [
+  { v: '1.7.1', date: '2026-09-19', notes: 'Salaries fixed to match HR’s own "Due this month" total exactly (prorated for joiners/leavers by calendar days, plus onboarding cost in the joining month) instead of a flat sum of active employees’ monthly salary' },
   { v: '1.7.0', date: '2026-09-19', notes: 'Income to OxeFit is now AUTO — mirrors Finance’s Payouts & OxeFit "Paid to OxeFit" figure exactly (device-mapped cost x milestone schedule x collected %), with a manual override still available for weeks Finance hasn’t synced' },
   { v: '1.6.0', date: '2026-09-19', notes: 'Restricted sign-in to Ahmed, Kamal and Sami; added version number display' },
   { v: '1.5.0', date: '2026-09-19', notes: 'Sign-in switched to redirect-only (no popup) — fixes browser popup blockers breaking Microsoft sign-in' },
@@ -644,6 +645,41 @@ function unwrapHR(remote) {
   return { employees: safeArr(S.employees), leaves: safeArr(S.leaves), payruns: safeArr(S.payruns), reviews: safeArr(S.reviews) };
 }
 function totalSalary(e) { return (Number(e.basic)||0) + (Number(e.housing)||0) + (Number(e.transport)||0) + (Number(e.other)||0); }
+// Date helpers matching HR's own D()/daysBetween() exactly (local midnight,
+// inclusive day counts) so month-boundary math lines up the same way.
+function hrDate(s) { return s ? new Date(s + 'T00:00:00') : null; }
+function hrDaysBetween(a, b) { return Math.round((b - a) / 86400000); }
+// Mirrors HR's own Monthly Salaries tab (rSalary()) exactly — this is what
+// HR calls "Due this month", not a flat sum of everyone's monthly salary.
+// A joiner or leaver only owes a prorated slice of the month (calendar
+// days active ÷ days in month), and a joiner additionally picks up
+// one-time onboarding cost (visa + insurance) in their joining month only.
+// Employees are included purely by start/end date overlap with the month —
+// same as HR — not by status, so Probation/Notice staff are counted and an
+// Exited employee still counts for the partial month they worked.
+function salariesDueForMonth(employees, year, month0) {
+  const mm = month0 + 1; // HR's own month numbering is 1-indexed
+  const mStart = new Date(year, mm - 1, 1), mEnd = new Date(year, mm, 0);
+  const dim = mEnd.getDate();
+  let total = 0;
+  employees.forEach(e => {
+    const s2 = hrDate(e.start);
+    if (!s2) return;
+    const en = (e.endDate || e.exitDate) ? hrDate(e.endDate || e.exitDate) : null;
+    if (!(s2 <= mEnd && (!en || en >= mStart))) return; // not active at any point this month
+    const sal = totalSalary(e);
+    const onb = (Number(e.visaCost) || 0) + (Number(e.insCost) || 0);
+    const aS = s2 > mStart ? s2 : mStart;
+    const aE = (en && en < mEnd) ? en : mEnd;
+    const active = Math.max(0, hrDaysBetween(aS, aE) + 1);
+    const full = (s2 <= mStart) && (!en || en >= mEnd);
+    const joined = s2 >= mStart && s2 <= mEnd;
+    let due = full ? sal : sal * (active / dim);
+    if (joined) due += onb;
+    total += due;
+  });
+  return total;
+}
 
 // Finance — envelope is {_app:'corev-finance', performance:{v:{...}}, commission:{REPS:[...]}, reminders:{CTRL:{...}}, ...}
 function unwrapFinance(remote) {
@@ -898,8 +934,11 @@ function computeAll() {
   };
 
   // ---- (c) finance: cost vs income ----
-  const activeEmployees = hr.employees.filter(e => (e.status || 'Active') === 'Active');
-  const salaries = activeEmployees.reduce((a, e) => a + totalSalary(e), 0);
+  // "Due this month" from HR's own Monthly Salaries tab — prorated for
+  // joiners/leavers and including onboarding cost in the joining month,
+  // exactly as HR computes it (see salariesDueForMonth). Ahmed confirmed
+  // this, not a flat sum of active employees' monthly salary, is correct.
+  const salaries = salariesDueForMonth(hr.employees, now.getFullYear(), now.getMonth());
   const rent = Number(fin.v.pf_cenb_0) || CENTRAL_DEFAULTS.rentWarehouse;
   const marketing = Number(fin.v.pf_cenb_8) || CENTRAL_DEFAULTS.marketing;
   const totalCost = salaries + rent + marketing;
@@ -1043,7 +1082,7 @@ function renderFinance() {
   const c = computed.financeC;
   const incomeIsOverridden = c.incomeOxefitManual != null;
   document.getElementById('financeCards').innerHTML = [
-    cardHtml('Salaries', fmtAED(c.salaries), 'Active employees · HR tool', 'AUTO'),
+    cardHtml('Salaries', fmtAED(c.salaries), 'Due this month · HR Monthly Salaries', 'AUTO'),
     cardHtml('Showroom + warehouse rent', fmtAED(c.rent), 'Finance central pool', 'AUTO'),
     cardHtml('Marketing budget', fmtAED(c.marketing), 'Finance central pool', 'AUTO'),
     cardHtml('Total cost', fmtAED(c.totalCost), 'Salaries + rent + marketing', 'AUTO'),
@@ -1133,6 +1172,7 @@ function renderHealth() {
   }).join('');
   const ob = computed.ordersB;
   document.getElementById('healthDetail').innerHTML = `<p class="hint">Raw finance fields read (performance.v): rent override <code>pf_cenb_0</code> = ${computed.fin.v.pf_cenb_0 ?? '(using default '+CENTRAL_DEFAULTS.rentWarehouse+')'} · marketing override <code>pf_cenb_8</code> = ${computed.fin.v.pf_cenb_8 ?? '(using default '+CENTRAL_DEFAULTS.marketing+')'}.</p>
+  <p class="hint">Salaries: read ${computed.hr.employees.length} employee record(s) from HR and reproduced HR's own "Due this month" total for ${fmtMonth(computed.now)} (matches HR's Monthly Salaries tab) — full monthly salary for anyone active the whole month, a prorated slice (active days ÷ days in month) for a joiner or leaver, plus onboarding cost (visa + insurance) in a joiner's first month. Employees are counted by start/end date, same as HR, not by status field.</p>
   <p class="hint">Closed Won here is computed from the sales tracker's OneDrive file (max per rep, per month — matches its exec dashboard's fallback logic). The tracker's dashboard can also override this with a HubSpot-refreshed cache that lives only in your browser's local storage, never in the OneDrive file, so if you've recently clicked "Refresh from HubSpot" there this figure may still be a few deals behind. Ask if you want this pulled live from HubSpot instead for an exact match.</p>
   <p class="hint">Closed XS1/XP1 units (FY lump sum): read from the <b>Delivery Tracker</b> (the delivery CRM) — ${computed.del.deliveries.length} delivery record(s) total, ${ob.closedDealsCount} past the OPEN stage (Delivered - pending session / Delivered - installation pending / Postponed / Closed), of which ${ob.closedDealsWithoutMapping} have no delivery date and can't be placed in a month, and ${ob.closed.unmapped} have a model name that isn't recognized as XS1 or XP1. FY-to-date = those records whose delivery date falls in Jan–${fmtMonth(computed.now)}, matching the scope of the FY Achieved (AED) figure above.</p>
   <p class="hint">Income to OxeFit (auto): mirrors Finance's Payouts &amp; OxeFit "Paid to OxeFit" KPI exactly — ${computed.financeC.oxefitIncome.dealsWithCost} of ${computed.financeC.oxefitIncome.dealsCount} closed deal(s) have an OxeFit cost (device mapping or manual override), totalling ${fmtAED(computed.financeC.oxefitIncome.totalCost)} owed to OxeFit, of which ${fmtAED(computed.financeC.oxefitIncome.paid)} is paid (settled) and ${fmtAED(computed.financeC.oxefitIncome.outstanding)} is still outstanding. Unit costs come from Finance's Costing catalog (<code>costing.DATA</code>/<code>costing.SVC</code> × exchange rate); a deal with no device mapping and no manual cost override contributes AED 0 here, same as it would on Finance's own tab.${computed.financeC.incomeOxefitManual != null ? ' A manual override of ' + fmtAED(computed.financeC.incomeOxefitManual) + ' is currently active on the Finance tab — clear it to use this auto figure.' : ''}</p>`;
@@ -1180,7 +1220,7 @@ function renderReport() {
     <div class="rsec">
       <div class="rsec-head"><span class="letter">c</span><h2>Finance — cost vs. income</h2><span class="rsub">${fmtMonth(c.now)}</span></div>
       <div class="grid cols-4">
-        ${cardHtml('Salaries', fmtAED(c.financeC.salaries), 'Active employees')}
+        ${cardHtml('Salaries', fmtAED(c.financeC.salaries), 'Due this month · HR')}
         ${cardHtml('Rent (showroom + warehouse)', fmtAED(c.financeC.rent), 'Finance central pool')}
         ${cardHtml('Marketing budget', fmtAED(c.financeC.marketing), 'Finance central pool')}
         ${cardHtml('Total cost', fmtAED(c.financeC.totalCost), 'Salaries + rent + marketing')}
