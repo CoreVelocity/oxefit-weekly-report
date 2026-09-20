@@ -271,14 +271,13 @@ footer.foot{padding:24px;text-align:center;color:var(--muted);font-size:11.5px;}
     <!-- ============ TARGETS ============ -->
     <div class="tabpane" id="tab-targets">
       <div class="section">
-        <h2><span class="letter">e</span> FY target progress <span class="auto-tag">AUTO — sales tracker goals</span></h2>
-        <p class="hint">Sum of monthly rep goals (perfMeta.goals) for Jan–Dec of the fiscal year, vs. cumulative closedWon to date.</p>
-        <div id="targetCards" class="grid cols-3"></div>
+        <h2><span class="letter">e</span> FY target progress <span class="auto-tag">AUTO</span></h2>
+        <p class="hint">FY sales target = last calendar year's full closedWon total × (1 + growth % you set below) — no more typing in a target by hand. Cost reduction vs target is pulled automatically from the Cost Optimizing Targets lump sum (section d): target = current cost − target cost across all 4 items; achieved = that same reduction, weighted by each item's own % complete.</p>
+        <div id="targetCards" class="grid cols-4"></div>
         <div class="card" style="margin-top:14px;">
-          <h3>Cost reduction target <span class="manual-tag">MANUAL</span></h3>
+          <h3>Growth target <span class="manual-tag">MANUAL</span></h3>
           <div class="field-row">
-            <div class="field"><label>Target cost reduction (AED / month)</label><input type="number" id="mCostReductionTarget" step="1"></div>
-            <div class="field"><label>Achieved so far (AED / month)</label><input type="number" id="mCostReductionAchieved" step="1"></div>
+            <div class="field"><label>Growth % over last year</label><input type="number" id="mFyGrowthPct" step="0.1" placeholder="e.g. 20"></div>
             <button class="btn primary small" onclick="saveManualInputs()">Save</button>
           </div>
         </div>
@@ -406,8 +405,9 @@ function isAuthorizedUser(account) {
    (shown on the sign-in screen, the access-denied screen, and the app
    header — see applyVersionTags()).
 ════════════════════════════════════════════════════════════════════ */
-const APP_VERSION = '2.3.0';
+const APP_VERSION = '2.4.0';
 const CHANGELOG = [
+  { v: '2.4.0', date: '2026-09-20', notes: '"FY target progress" reworked: FY sales target is now AUTO — last calendar year\'s full closedWon total × (1 + a growth % you enter), replacing the old sum-of-rep-goals figure; a new "Last year closed" card shows the base figure it grows from. Cost reduction vs target is now also AUTO, pulled straight from the Cost Optimizing Targets lump sum (section d) instead of two separate manual fields — target = current cost minus target cost across all 4 items, achieved = that reduction weighted by each item\'s own % complete' },
   { v: '2.3.0', date: '2026-09-20', notes: 'Added an AED / USD display toggle in the header (fixed rate 1 USD = 3.67 AED). All figures are still entered and stored in AED — the toggle only changes how amounts are displayed across the dashboard and the printable weekly report; your choice is remembered on this device' },
   { v: '2.2.0', date: '2026-09-20', notes: '"Showroom & warehouse relocation" renamed to "Cost Optimizing Targets" and extended with a 4th line item, Salaries, alongside Dubai showroom / Abu Dhabi showroom / Warehouse. Each item now shows a computed % optimized (current cost → target cost) in green, plus a lump-sum total row across all 4 — on both the entry form (with a new summary-card row) and the printable weekly report, which also gets a new "Cost Optimized (lump sum)" hero KPI' },
   { v: '2.1.1', date: '2026-09-20', notes: 'Reworked the v2.1.0 Other Expenses tab into a 5th column ("Other expenses") right next to Onboarding cost in the Total Cost (Annual) monthly ledger, instead of a separate tab — one row per month covers everything now. Removed the redundant "Monthly ledger subtotal" card from the Total Cost (Annual) dashboard (any old Other Expenses tab data is migrated into the new column automatically on first save)' },
@@ -1137,14 +1137,28 @@ function computeAll() {
   const costOptTotalPct = costOptTotals.current > 0 ? ((costOptTotals.current - costOptTotals.target) / costOptTotals.current * 100) : null;
 
   // ---- (e) FY targets ----
-  const goals = safeObj((sales.data.perfMeta || {}).goals);
-  let fyTarget = 0;
-  fyMonths.forEach(mk => { const g = safeObj(goals[mk]); Object.keys(g).forEach(rep => { fyTarget += Number(g[rep]) || 0; }); });
+  // FY sales target is now AUTO: last calendar year's full closedWon
+  // total (Jan-Dec of the year before this FY, from the sales tracker),
+  // grown by a growth % Ahmed enters by hand — replacing the old
+  // sum-of-rep-goals figure (perfMeta.goals), which tracked reps'
+  // individual monthly goals rather than a top-down FY growth target.
+  function monthsOfCalendarYear(y) { const out = []; for (let m = 0; m <= 11; m++) out.push(y + '-' + m); return out; }
+  const lastYearAchieved = closedWonForMonths(monthsOfCalendarYear(now.getFullYear() - 1));
+  const fyGrowthPct = (manual.fyGrowthPct === '' || manual.fyGrowthPct == null) ? null : Number(manual.fyGrowthPct);
+  const fyTarget = lastYearAchieved * (1 + (fyGrowthPct || 0) / 100);
+  // Cost reduction is now AUTO too — pulled straight from the Cost
+  // Optimizing Targets lump sum (d) instead of typed in separately here.
+  // Target = the full current->target reduction across all 4 items;
+  // Achieved = that same reduction, prorated by each item's own
+  // "% complete" so it reflects how much of the plan is actually done,
+  // not just planned.
+  const costReductionTarget = costOptTotals.current - costOptTotals.target;
+  const costReductionAchieved = costOptTargets.reduce((s, x) => s + (Number(x.pct) || 0) / 100 * (x.current - x.target), 0);
   const targetsE = {
     fyTarget, fyAchieved: salesA.fyAchieved,
     progressPct: fyTarget > 0 ? (salesA.fyAchieved / fyTarget * 100) : 0,
-    costReductionTarget: Number(manual.costReductionTarget) || 0,
-    costReductionAchieved: Number(manual.costReductionAchieved) || 0
+    lastYearAchieved, fyGrowthPct,
+    costReductionTarget, costReductionAchieved
   };
 
   // ---- (f) marketing leads this month ----
@@ -1514,12 +1528,12 @@ function renderShowroom() {
 function renderTargets() {
   const t = computed.targetsE;
   document.getElementById('targetCards').innerHTML = [
-    cardHtml('FY sales target', fmtAED(t.fyTarget), 'Sum of monthly rep goals, Jan–Dec', 'AUTO'),
+    cardHtml('Last year closed (' + (computed.now.getFullYear() - 1) + ')', fmtAED(t.lastYearAchieved), 'Full-year closedWon, sales tracker', 'AUTO'),
+    cardHtml('FY sales target', fmtAED(t.fyTarget), (t.fyGrowthPct == null ? 'Enter a growth % →' : (t.fyGrowthPct>=0?'+':'') + t.fyGrowthPct + '% over last year'), 'AUTO'),
     cardHtml('FY achieved', fmtAED(t.fyAchieved), pct(t.progressPct) + ' of target', 'AUTO'),
-    cardHtml('Cost reduction vs target', fmtAED(t.costReductionAchieved) + ' / ' + fmtAED(t.costReductionTarget), t.costReductionTarget>0?pct(t.costReductionAchieved/t.costReductionTarget*100)+' of target':'No target set', 'MANUAL')
+    cardHtml('Cost reduction vs target', fmtAED(t.costReductionAchieved) + ' / ' + fmtAED(t.costReductionTarget), t.costReductionTarget>0?pct(t.costReductionAchieved/t.costReductionTarget*100)+' of target':'No cost optimizing targets entered', 'AUTO')
   ].join('');
-  document.getElementById('mCostReductionTarget').value = t.costReductionTarget || '';
-  document.getElementById('mCostReductionAchieved').value = t.costReductionAchieved || '';
+  document.getElementById('mFyGrowthPct').value = t.fyGrowthPct == null ? '' : t.fyGrowthPct;
 }
 
 function renderLeads() {
@@ -1635,8 +1649,9 @@ function renderReport() {
 
     <div class="rsec">
       <div class="rsec-head"><span class="letter">e</span><h2>FY target progress</h2></div>
-      <div class="grid cols-3">
-        ${cardHtml('FY sales target', fmtAED(c.targetsE.fyTarget), 'Sum of monthly rep goals')}
+      <div class="grid cols-4">
+        ${cardHtml('Last year closed (' + (c.now.getFullYear() - 1) + ')', fmtAED(c.targetsE.lastYearAchieved), 'Full-year closedWon')}
+        ${cardHtml('FY sales target', fmtAED(c.targetsE.fyTarget), c.targetsE.fyGrowthPct == null ? 'No growth % set' : (c.targetsE.fyGrowthPct>=0?'+':'') + c.targetsE.fyGrowthPct + '% over last year')}
         ${cardHtml('FY achieved', fmtAED(c.targetsE.fyAchieved), pct(c.targetsE.progressPct) + ' of target')}
         ${cardHtml('Cost reduction · achieved / target', fmtAED(c.targetsE.costReductionAchieved) + ' / ' + fmtAED(c.targetsE.costReductionTarget), '')}
       </div>
@@ -1725,8 +1740,10 @@ function collectManualInputs() {
   annualCostDraft = null;
   delete manual.otherExpenses;
 
-  manual.costReductionTarget = Number(document.getElementById('mCostReductionTarget').value) || 0;
-  manual.costReductionAchieved = Number(document.getElementById('mCostReductionAchieved').value) || 0;
+  const growthEl = document.getElementById('mFyGrowthPct');
+  manual.fyGrowthPct = (growthEl && growthEl.value !== '') ? Number(growthEl.value) : '';
+  delete manual.costReductionTarget;
+  delete manual.costReductionAchieved;
 
   const relocation = {};
   COST_OPT_ITEMS.forEach(p => {
