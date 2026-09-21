@@ -120,6 +120,17 @@ main{padding:22px;max-width:1180px;width:100%;margin:0 auto;}
 .rsec-head{display:flex;align-items:baseline;gap:10px;margin-bottom:14px;padding-bottom:9px;border-bottom:1px solid var(--line);}
 .rsec-head .letter{background:linear-gradient(135deg,var(--hyper),var(--blue));color:#fff;width:25px;height:25px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:800;flex:none;}
 .rsec-head h2{font-size:15.5px;margin:0;}
+/* A secondary heading used mid-section (e.g. "Annual (fiscal-year-to-date)"
+   under Finance), with no visible letter badge. It still gets an invisible
+   one (kept in the layout, just not painted) rather than dropping the
+   badge span entirely — a bare single-child .rsec-head reproducibly loses
+   its left inset in Chromium's PDF export (confirmed: it renders flush
+   against the physical page edge, ignoring the page margin, while every
+   other .rsec-head — which all have at least a letter badge alongside the
+   h2 — renders correctly). Keeping the same two-child shape sidesteps
+   whatever triggers that. */
+.rsec-head .letter.ghost{visibility:hidden;}
+.rsec-subhead{margin-top:18px;}
 .rsec-head .rsub{margin-left:auto;font-size:11.5px;color:var(--muted);text-align:right;}
 .rtable-wrap{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:12px;}
 .rtable-wrap table{margin:0;}
@@ -151,12 +162,11 @@ tr:hover td{background:rgba(255,255,255,.02);}
 pre.raw{max-height:260px;overflow:auto;background:#050A1C;border:1px solid var(--line);border-radius:8px;padding:10px;font-size:11px;color:#9fb4e8;}
 footer.foot{padding:24px;text-align:center;color:var(--muted);font-size:11.5px;}
 
-/* Force portrait A4 as the default paper/orientation for this document —
-   without this, some browsers fall back to whatever orientation was last
-   picked in the print dialog, and a wide table (see below) can nudge that
-   toward landscape. Margins are trimmed a bit from a browser's usual
-   default so more content fits per page. */
-@page{ size: A4 portrait; margin: 12mm 10mm; }
+/* A dedicated wide page size for this report — wider than A4 so the
+   4-column card grids and the 7-column Cost Optimizing Targets table have
+   real breathing room, without resorting to a landscape flip (which just
+   rotates a narrow A4 rather than giving the layout more usable width). */
+@page{ size: 330mm 460mm; margin: 14mm 12mm; }
 
 /* Print / report export — only the Weekly Report tab's content prints,
    regardless of which tab is active on screen, and it keeps the same dark
@@ -171,28 +181,47 @@ footer.foot{padding:24px;text-align:center;color:var(--muted);font-size:11.5px;}
   *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;color-adjust:exact !important;}
   header.top, nav.tabs, .no-print{display:none !important;}
   main{max-width:100%;padding:0;}
-  html, body{background:var(--bg) !important;font-size:12px;}
+  html, body{background:var(--bg) !important;font-size:12.5px;}
   /* Keep sections/cards from splitting awkwardly across a page break —
      everything else (backgrounds, borders, text/badge colors, chart
      colors) is left exactly as it renders on screen. */
   .report-hero, .card, .rcard, .rtable-wrap, .hero-kpi, .income-banner, .chart-card{page-break-inside:avoid;break-inside:avoid;}
-  /* Never let a section's heading print as the last line on a page with
-     its table/cards pushed to the next one — force the heading to move
-     down onto the same page as (at least the start of) its content. */
-  .rsec-head, .rsec-head h2{page-break-after:avoid;break-after:avoid;}
-  /* Tighten up table density so the widest report table (Cost Optimizing
-     Targets, 7 columns) comfortably fits a portrait page instead of
-     needing landscape or getting clipped. Card/heading text is trimmed to
-     match so proportions still look right next to the smaller tables. */
-  table{font-size:10.5px;}
-  .rtable-wrap th, .rtable-wrap td{padding:6px 8px;}
-  .card{padding:10px 12px;}
-  .card .big{font-size:17px;}
-  .hero-kpi{padding:9px 10px;}
-  .hero-kpi .val{font-size:16px;}
-  .rsec-head h2{font-size:13.5px;}
-  .report-hero h1{font-size:19px;}
-  .report-hero{padding:18px 20px;}
+  /* Never let a section's heading print separately from its table/cards.
+     A first attempt used page-break-after:avoid directly on the heading,
+     which works logically but triggers a real Chromium/Skia print bug:
+     whenever that rule forces a heading to become the very first thing on
+     a new page, the heading loses its left inset and renders flush
+     against the page edge (this is what looked like a broken left
+     margin). Treating the whole lettered section as one unsplittable
+     block sidesteps it — page-break-inside:avoid doesn't have that bug
+     (cards and tables already relied on it above with no issue), and it
+     keeps a heading and its content together just as well. Sections are
+     all short enough to fit on one page of this wider layout; if one
+     ever isn't, the browser falls back to breaking inside it normally
+     rather than leaving a large gap. */
+  .rsec{page-break-inside:avoid;break-inside:avoid;}
+  /* Section headers (letter + title + a right-aligned date/period label)
+     were occasionally wide enough — a long title plus a long label like
+     "This month: September 2026" — to push that right-hand label past the
+     page's printable edge, clipping it against the page boundary (this is
+     what looked like a broken right margin). Letting the row wrap keeps
+     the label fully on the page, dropping to its own line under the title
+     if there isn't room beside it, instead of running off the edge. */
+  .rsec-head{flex-wrap:wrap;row-gap:2px;}
+  .rsec-head .rsub{flex:0 0 auto;max-width:100%;margin-left:auto;}
+  /* A little less table/card density than the screen version, still
+     comfortably smaller than full size now that the page itself is wider
+     — enough headroom for the widest report table (Cost Optimizing
+     Targets, 7 columns) without cramming everything else. */
+  table{font-size:11.5px;}
+  .rtable-wrap th, .rtable-wrap td{padding:7px 10px;}
+  .card{padding:12px 14px;}
+  .card .big{font-size:20px;}
+  .hero-kpi{padding:10px 11px;}
+  .hero-kpi .val{font-size:17px;}
+  .rsec-head h2, .rsec-subhead h2{font-size:14px;}
+  .report-hero h1{font-size:21px;}
+  .report-hero{padding:20px 22px;}
   /* The hero's decorative radial-glow overlay is screen-only flourish;
      hiding it on export avoids any risk of it interfering with the title
      text sitting underneath it. */
@@ -476,8 +505,9 @@ function isAuthorizedUser(account) {
    (shown on the sign-in screen, the access-denied screen, and the app
    header — see applyVersionTags()).
 ════════════════════════════════════════════════════════════════════ */
-const APP_VERSION = '2.12.0';
+const APP_VERSION = '2.13.0';
 const CHANGELOG = [
+  { v: '2.13.0', date: '2026-09-20', notes: 'PDF/print export now uses a dedicated wide page size (330mm × 460mm) instead of A4, so the 4-column card grids and the 7-column Cost Optimizing Targets table have real room instead of being cramped or flipped to landscape. Fixed two real margin bugs found in an exported PDF: a section\'s right-aligned date/period label (e.g. "This month: September 2026") could run past the page\'s printable edge and get clipped when the heading next to it was long — that row now wraps the label onto its own line instead of overflowing off the page; and the "Annual (fiscal-year-to-date)" sub-heading under Finance was rendering flush against the left page edge with no margin at all (every other heading has a small colored letter badge before it and was unaffected) — it now keeps the same margin as every other section heading. Section headings can no longer be separated from their table/cards by a page break either' },
   { v: '2.12.0', date: '2026-09-20', notes: 'PDF/print export now defaults to A4 portrait (was drifting to landscape because the widest report table didn\'t fit portrait width) — tightened table/card padding and font sizes so everything fits without landscape. Section headings can no longer get stranded at the bottom of a page with their table pushed to the next one — a heading now always moves down onto the same page as its content' },
   { v: '2.11.0', date: '2026-09-20', notes: 'PDF/print export now keeps the same dark navy theme and colors shown on screen instead of switching to a plain white/black "print-friendly" look — cards, the hero banner, badges, and the donut charts all export in their real colors' },
   { v: '2.10.0', date: '2026-09-20', notes: 'Removed the duplicate cost-distribution donut chart under Finance — cost vs. income in the Weekly Report (kept the one in the executive summary). Fixed the Employee status & closures table (report + Team tab) showing the same person twice under a short roster name and their full HR name (e.g. "Fatima" / "Fatima Wardani", "Wafiq" / "Wafiq Adel Ismail Mohamed Yahia") — these are now merged into a single row using the HR record\'s status/region and combined closure count' },
@@ -1843,7 +1873,7 @@ function renderReport() {
         ${cardHtml('Total cost (this month)', fmtAED(c.financeC.totalCost), 'Salaries + rent + marketing, this month only')}
         ${cardHtml('Income to OxeFit (all-time)', fmtAED(c.financeC.incomeOxefit), (c.financeC.incomeOxefitManual != null ? 'Manual override' : 'Paid to OxeFit · Finance') + ' · since day 0, not month-scoped')}
       </div>
-      <div class="rsec-head" style="margin-top:18px;"><h2 style="font-size:15px;">Annual (fiscal-year-to-date)</h2></div>
+      <div class="rsec-head rsec-subhead"><span class="letter ghost">•</span><h2>Annual (fiscal-year-to-date)</h2></div>
       <div class="grid cols-3">
         ${cardHtml('Total cost (annual)', fmtAED(c.financeC.annualCostTotal), c.financeC.annualCostMonths.length + ' month(s) entered')}
         ${cardHtml('Orders to OxeFit (FY)', fmtAED(c.financeC.ordersToOxefitFY), 'Deals closed this FY, paid or not yet paid')}
