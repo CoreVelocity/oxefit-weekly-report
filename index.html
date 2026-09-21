@@ -523,8 +523,9 @@ function isAuthorizedUser(account) {
    (shown on the sign-in screen, the access-denied screen, and the app
    header — see applyVersionTags()).
 ════════════════════════════════════════════════════════════════════ */
-const APP_VERSION = '2.14.0';
+const APP_VERSION = '2.14.1';
 const CHANGELOG = [
+  { v: '2.14.1', date: '2026-09-21', notes: 'PowerPoint export: each slide now has a real title bar naming exactly what\'s on it, pulled straight from that slide\'s own section heading(s) — e.g. "a. Sales achieved vs. committed · b. Commitments for Delivering XS1 and XP1" — instead of no title at all' },
   { v: '2.14.0', date: '2026-09-21', notes: 'Added an "Export to PowerPoint" button next to Print / Save as PDF on the Weekly Report tab. It builds a .pptx in the same dark theme, one slide per group of sections: the executive summary dashboard alone on slide 1, then each pair of lettered sections sharing a slide (a+b, c+d, e+f), then the last section (g, Employee status & closures) alone on its own slide' },
   { v: '2.13.0', date: '2026-09-20', notes: 'PDF/print export now uses a dedicated wide page size (330mm × 460mm) instead of A4, so the 4-column card grids and the 7-column Cost Optimizing Targets table have real room instead of being cramped or flipped to landscape. Fixed two real margin bugs found in an exported PDF: a section\'s right-aligned date/period label (e.g. "This month: September 2026") could run past the page\'s printable edge and get clipped when the heading next to it was long — that row now wraps the label onto its own line instead of overflowing off the page; and the "Annual (fiscal-year-to-date)" sub-heading under Finance was rendering flush against the left page edge with no margin at all (every other heading has a small colored letter badge before it and was unaffected) — it now keeps the same margin as every other section heading. Section headings can no longer be separated from their table/cards by a page break either' },
   { v: '2.12.0', date: '2026-09-20', notes: 'PDF/print export now defaults to A4 portrait (was drifting to landscape because the widest report table didn\'t fit portrait width) — tightened table/card padding and font sizes so everything fits without landscape. Section headings can no longer get stranded at the bottom of a page with their table pushed to the next one — a heading now always moves down onto the same page as its content' },
@@ -2083,7 +2084,9 @@ function downloadJson() {
    html2canvas, then assembles them into a .pptx with PptxGenJS. Layout:
    slide 1 = the hero dashboard alone; then each pair of lettered sections
    (a+b, c+d, e+f) shares one slide; the last section (g) gets its own
-   slide since 7 sections is an odd number.
+   slide since 7 sections is an odd number. Each slide gets a real title
+   bar pulled straight from that slide's own section heading(s) in the
+   rendered DOM, so it always names exactly what's on the slide.
 ════════════════════════════════════════════════════════════════════ */
 async function exportToPowerPoint(btnEl) {
   if (typeof html2canvas === 'undefined' || typeof PptxGenJS === 'undefined') {
@@ -2095,12 +2098,25 @@ async function exportToPowerPoint(btnEl) {
   const sections = Array.from(reportBody.querySelectorAll(':scope > .rsec'));
   if (!hero || sections.length < 7) { alert('Report isn\'t fully loaded yet — refresh data first.'); return; }
 
+  // Pull each section's own heading straight off the rendered DOM (letter +
+  // h2 text) so the slide title always names exactly what's on that slide,
+  // instead of a hand-typed label that can drift out of sync with the report.
+  const sectionHeading = (sec) => {
+    const h2 = sec.querySelector(':scope > .rsec-head > h2');
+    const letter = sec.querySelector(':scope > .rsec-head > .letter');
+    const text = h2 ? h2.textContent.trim() : '';
+    const l = letter ? letter.textContent.trim() : '';
+    return l && text ? (l + '. ' + text) : text;
+  };
+  const heroMonth = hero.querySelector('h1');
+  const heroTitle = 'Executive Summary — Weekly Business Report' + (heroMonth ? ' · ' + heroMonth.textContent.trim() : '');
+
   const groups = [
-    { title: 'Executive summary', items: [hero] },
-    { title: 'a · b — Sales & Orders', items: [sections[0], sections[1]] },
-    { title: 'c · d — Finance & Cost Optimizing', items: [sections[2], sections[3]] },
-    { title: 'e · f — Targets & Marketing', items: [sections[4], sections[5]] },
-    { title: 'g — Employees', items: [sections[6]] }
+    { title: heroTitle, items: [hero] },
+    { title: [sectionHeading(sections[0]), sectionHeading(sections[1])].filter(Boolean).join('     ·     '), items: [sections[0], sections[1]] },
+    { title: [sectionHeading(sections[2]), sectionHeading(sections[3])].filter(Boolean).join('     ·     '), items: [sections[2], sections[3]] },
+    { title: [sectionHeading(sections[4]), sectionHeading(sections[5])].filter(Boolean).join('     ·     '), items: [sections[4], sections[5]] },
+    { title: sectionHeading(sections[6]), items: [sections[6]] }
   ];
 
   const origLabel = btnEl ? btnEl.textContent : null;
@@ -2111,17 +2127,29 @@ async function exportToPowerPoint(btnEl) {
     pptx.layout = 'WIDE';
     pptx.title = 'OxeFit Weekly Report — ' + fmtMonth(computed.now);
 
+    const titleTop = 0.22, titleH = 0.5, ruleY = 0.82, contentTop = 0.98;
     for (const group of groups) {
       const canvas = await renderGroupToCanvas(group.items);
       const dataUrl = canvas.toDataURL('image/png');
       const slide = pptx.addSlide();
       slide.background = { color: '0B1226' };
+
+      slide.addText(group.title || 'OxeFit Weekly Report', {
+        x: 0.4, y: titleTop, w: 13.33 - 0.8, h: titleH,
+        fontFace: 'Arial', fontSize: 18, bold: true, color: 'FFFFFF',
+        align: 'left', valign: 'middle'
+      });
+      slide.addShape('line', {
+        x: 0.4, y: ruleY, w: 13.33 - 0.8, h: 0,
+        line: { color: '2A3A66', width: 1 }
+      });
+
       const marginIn = 0.35;
-      const maxW = 13.33 - marginIn * 2, maxH = 7.5 - marginIn * 2;
+      const maxW = 13.33 - marginIn * 2, maxH = 7.5 - contentTop - marginIn;
       const ratio = canvas.width / canvas.height;
       let w = maxW, h = w / ratio;
       if (h > maxH) { h = maxH; w = h * ratio; }
-      const x = (13.33 - w) / 2, y = (7.5 - h) / 2;
+      const x = (13.33 - w) / 2, y = contentTop + (maxH - h) / 2;
       slide.addImage({ data: dataUrl, x, y, w, h });
     }
 
